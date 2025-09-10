@@ -1,0 +1,6 @@
+TODO :
+Relatório com
+o Documentação de instalação e uso
+o Explicação da arquitetura
+o Testes de falha
+o Exibição dos resultados
