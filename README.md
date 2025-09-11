@@ -45,7 +45,7 @@ projeto-kafka-fabrica/
 │   └── Dockerfile
 │
 ├── sensor/                       # Produtores (simulação)
-│   ├── sensor1.py
+│   ├── sensor.py
 │   ├── requirements.txt
 │   └── Dockerfile
 │
