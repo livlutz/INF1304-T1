@@ -25,6 +25,10 @@ TIPOS_SENSORES = {
 
 #dados-sensores sera o nome do topico kafka que o sensor vai enviar as mensagens
 global NOME_ARQUIVO
+NOME_ARQUIVO = "dados-sensores.json"
+global KAFKA_BROKERS
+KAFKA_BROKERS = ['kafka1:9092','kafka2:9093']
+
 
 def gerar_dados_maquina():
     """
@@ -57,11 +61,6 @@ def gerar_arquivos_json(num_arquivos=1):
         num_registros = random.randint(10, 20)
         dados_coletados = [gerar_dados_maquina() for _ in range(num_registros)]
 
-        # Cria um nome de arquivo único com base no timestamp
-        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        global NOME_ARQUIVO
-        NOME_ARQUIVO = f"dados_sensores_{timestamp_str}.json"
-
         try:
             with open(NOME_ARQUIVO, "w") as f:
                 json.dump(dados_coletados, f, indent=4)
@@ -78,7 +77,7 @@ if __name__ == "__main__":
     while True:
         gerar_arquivos_json(num_arquivos=1)
         #manda mensagem ao kafka
-        producer = KafkaProducer(bootstrap_servers='kafka1:9092')
+        producer = KafkaProducer(bootstrap_servers=KAFKA_BROKERS, value_serializer=lambda v: str(v).encode('utf-8'))
 
         with open(NOME_ARQUIVO, "r") as f:
             dados_coletados = json.load(f)
@@ -87,5 +86,5 @@ if __name__ == "__main__":
             producer.send('dados-sensores', json.dumps(dados).encode('utf-8'))
 
         producer.close()
-        
-        time.sleep(5)  # Espera 5 segundos antes de gerar o próximo arquivo
+
+        time.sleep(5)
