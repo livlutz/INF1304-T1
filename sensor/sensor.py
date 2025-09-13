@@ -24,7 +24,7 @@ TIPOS_SENSORES = {
 }
 
 #dados-sensores sera o nome do topico kafka que o sensor vai enviar as mensagens
-NOME_ARQUIVO = "info_sensores.json"
+global NOME_ARQUIVO
 
 def gerar_dados_maquina():
     """
@@ -59,12 +59,13 @@ def gerar_arquivos_json(num_arquivos=1):
 
         # Cria um nome de arquivo único com base no timestamp
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        nome_arquivo_com_timestamp = f"dados_sensores_{timestamp_str}.json"
+        global NOME_ARQUIVO
+        NOME_ARQUIVO = f"dados_sensores_{timestamp_str}.json"
 
         try:
-            with open(nome_arquivo_com_timestamp, "w") as f:
+            with open(NOME_ARQUIVO, "w") as f:
                 json.dump(dados_coletados, f, indent=4)
-            print(f"Arquivo '{nome_arquivo_com_timestamp}' gerado com sucesso!")
+            print(f"Arquivo '{NOME_ARQUIVO}' gerado com sucesso!")
 
         except IOError as e:
             print(f"Erro ao escrever o arquivo: {e}")

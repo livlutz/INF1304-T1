@@ -1,0 +1,22 @@
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements file if it exists, otherwise we'll install kafka-python directly
+COPY requirements.txt* ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir kafka-python
+
+# If requirements.txt exists, install from it
+RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
+
+# Copy the sensor script
+COPY sensor.py .
+
+# Set environment variables for Kafka
+ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+
+# Run the sensor application
+CMD ["python", "sensor.py"]
