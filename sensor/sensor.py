@@ -27,8 +27,7 @@ TIPOS_SENSORES = {
 global NOME_ARQUIVO
 NOME_ARQUIVO = "dados-sensores.json"
 global KAFKA_BROKERS
-KAFKA_BROKERS = ['kafka1:9092','kafka2:9093']
-
+KAFKA_BROKERS = ['kafka1:9092','kafka2:9093','kafka3:9094']
 
 def gerar_dados_maquina():
     """
