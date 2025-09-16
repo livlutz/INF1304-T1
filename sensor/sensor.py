@@ -4,12 +4,15 @@ refrigeração, empacotamento, etc.). Cada máquina é equipada com sensores que
 vibração, consumo de energia, etc.) continuamente para um sistema central que processa esses dados em tempo
 real para detectar anomalias, falhas ou padrões de uso.
 """
-
+import os
+import sys
 import json
 import random
 import time
 from datetime import datetime
 from kafka import KafkaProducer
+
+sys.stdout.reconfigure(line_buffering=True)
 
 # Configurações da simulação
 SETORES = ["linha_producao", "refrigeracao", "empacotamento"]
@@ -27,7 +30,7 @@ TIPOS_SENSORES = {
 global NOME_ARQUIVO
 NOME_ARQUIVO = "dados-sensores.json"
 global KAFKA_BROKERS
-KAFKA_BROKERS = ['kafka1:9092','kafka2:9093','kafka3:9094']
+KAFKA_BROKERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka1:9092").split(",")
 
 def gerar_dados_maquina():
     """
@@ -68,6 +71,20 @@ def gerar_arquivos_json(num_arquivos=1):
         except IOError as e:
             print(f"Erro ao escrever o arquivo: {e}")
 
+def criar_producer(retries=10, delay=5):
+    for i in range(retries):
+        try:
+            producer = KafkaProducer(
+                bootstrap_servers=KAFKA_BROKERS,
+                retries=5
+            )
+            print(f"Conectado ao Kafka! Brokers tentados: {KAFKA_BROKERS}", flush=True)
+            return producer
+        except Exception as e:
+            print(f"Tentativa {i+1}/{retries} falhou: {e}", flush=True)
+            time.sleep(delay)
+    raise Exception("Não foi possível conectar ao Kafka.")
+
 if __name__ == "__main__":
     # Gera um único arquivo JSON ao executar o script
     #gerar_arquivos_json(num_arquivos=1)
@@ -76,13 +93,16 @@ if __name__ == "__main__":
     while True:
         gerar_arquivos_json(num_arquivos=1)
         #manda mensagem ao kafka
-        producer = KafkaProducer(bootstrap_servers=KAFKA_BROKERS, value_serializer=lambda v: str(v).encode('utf-8'))
+        
+        producer = criar_producer()
 
         with open(NOME_ARQUIVO, "r") as f:
             dados_coletados = json.load(f)
 
         for dados in dados_coletados:
-            producer.send('dados-sensores', json.dumps(dados).encode('utf-8'))
+            future = producer.send('dados-sensores', json.dumps(dados).encode('utf-8'))
+            result = future.get(timeout=10)
+            print(f"Mensagem enviada para {result.topic} [partition {result.partition}]", flush=True)
 
         producer.close()
 
