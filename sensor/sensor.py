@@ -27,9 +27,7 @@ TIPOS_SENSORES = {
 }
 
 #dados-sensores sera o nome do topico kafka que o sensor vai enviar as mensagens
-global NOME_ARQUIVO
 NOME_ARQUIVO = "dados-sensores.json"
-global KAFKA_BROKERS
 KAFKA_BROKERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka1:9092").split(",")
 
 def gerar_dados_maquina():
