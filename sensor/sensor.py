@@ -72,6 +72,12 @@ def gerar_arquivos_json(num_arquivos=1):
             print(f"Erro ao escrever o arquivo: {e}")
 
 def criar_producer(retries=10, delay=5):
+    """"
+    Cria um KafkaProducer com tentativas de reconexão.
+    retries: número de tentativas
+    delay: tempo de espera entre tentativas (em segundos)
+    Retorna o producer se a conexão for bem-sucedida, caso contrário, levanta uma exceção.
+    """
     for i in range(retries):
         try:
             producer = KafkaProducer(
@@ -105,5 +111,12 @@ if __name__ == "__main__":
             print(f"Mensagem enviada para {result.topic} [partition {result.partition}]", flush=True)
 
         producer.close()
+        
+        # Exclui o arquivo após enviar todas as informações ao Kafka
+        try:
+            os.remove(NOME_ARQUIVO)
+            print(f"Arquivo '{NOME_ARQUIVO}' excluído com sucesso!")
+        except OSError as e:
+            print(f"Erro ao excluir o arquivo: {e}")
 
         time.sleep(5)
