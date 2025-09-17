@@ -92,9 +92,6 @@ def criar_producer(retries=10, delay=5):
     raise Exception("Não foi possível conectar ao Kafka.")
 
 if __name__ == "__main__":
-    # Gera um único arquivo JSON ao executar o script
-    #gerar_arquivos_json(num_arquivos=1)
-
     # Para simular a geração contínua
     while True:
         gerar_arquivos_json(num_arquivos=1)
