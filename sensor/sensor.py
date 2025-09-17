@@ -17,9 +17,6 @@ sys.stdout.reconfigure(line_buffering=True)
 # Configurações da simulação
 SETORES = ["linha_producao", "refrigeracao", "empacotamento"]
 
-#podemos alterar esse numero
-NUMERO_MAQUINAS_POR_SETOR = 5
-
 TIPOS_SENSORES = {
     "temperatura": {"min": 20.0, "max": 80.0, "unidade": "C"},
     "vibracao": {"min": 0.5, "max": 5.0, "unidade": "mm/s"},
@@ -29,6 +26,7 @@ TIPOS_SENSORES = {
 #dados-sensores sera o nome do topico kafka que o sensor vai enviar as mensagens
 NOME_ARQUIVO = "dados-sensores.json"
 KAFKA_BROKERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka1:9092").split(",")
+KAFKA_TOPIC = os.getenv('KAFKA_TOPIC', 'dados-sensores')
 
 def gerar_dados_maquina():
     """
@@ -94,19 +92,19 @@ if __name__ == "__main__":
     while True:
         gerar_arquivos_json(num_arquivos=1)
         #manda mensagem ao kafka
-        
+
         producer = criar_producer()
 
         with open(NOME_ARQUIVO, "r") as f:
             dados_coletados = json.load(f)
 
         for dados in dados_coletados:
-            future = producer.send('dados-sensores', json.dumps(dados).encode('utf-8'))
+            future = producer.send(KAFKA_TOPIC, json.dumps(dados).encode('utf-8'))
             result = future.get(timeout=10)
             print(f"Mensagem enviada para {result.topic} [partition {result.partition}]", flush=True)
 
         producer.close()
-        
+
         # Exclui o arquivo após enviar todas as informações ao Kafka
         try:
             os.remove(NOME_ARQUIVO)
