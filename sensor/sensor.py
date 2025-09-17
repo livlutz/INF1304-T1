@@ -10,7 +10,8 @@ import json
 import random
 import time
 from datetime import datetime
-from kafka import KafkaProducer
+from kafka import KafkaProducer,KafkaAdminClient
+from kafka.structs import TopicPartition
 
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -87,6 +88,21 @@ def criar_producer(retries=10, delay=5):
             time.sleep(delay)
     raise Exception("Não foi possível conectar ao Kafka.")
 
+def obter_lider(topico, particao):
+    try:
+        admin = KafkaAdminClient(bootstrap_servers=KAFKA_BROKERS, client_id="sensor-admin")
+        topics = admin.describe_topics([topico])
+        for t in topics:
+            for p in t["partitions"]:
+                if p["partition"] == particao:
+                    leader = p["leader"]
+                    if leader != -1:  # -1 significa sem líder
+                        broker = next(b for b in t["partitions"] if b["partition"] == particao)
+                        return f"brokerId={leader}"
+        return "desconhecido (sem líder definido)"
+    except Exception as e:
+        return f"desconhecido ({e})"
+    
 if __name__ == "__main__":
     # Para simular a geração contínua
     while True:
@@ -101,7 +117,12 @@ if __name__ == "__main__":
         for dados in dados_coletados:
             future = producer.send(KAFKA_TOPIC, json.dumps(dados).encode('utf-8'))
             result = future.get(timeout=10)
-            print(f"Mensagem enviada para {result.topic} [partition {result.partition}]", flush=True)
+            lider = obter_lider(result.topic, result.partition) 
+            print(
+                f"Mensagem enviada para {result.topic} [partição {result.partition}, offset {result.offset}] "
+                f"no broker líder {lider}",
+                flush=True
+            )
 
         producer.close()
 
