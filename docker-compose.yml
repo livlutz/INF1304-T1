@@ -115,6 +115,22 @@ services:
       - int-network
       - ext-network
 
+  consumer:
+    container_name: consumer
+    build: ./backend-java
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks:
+      - int-network
+
 networks:
   ext-network:
     driver: bridge
