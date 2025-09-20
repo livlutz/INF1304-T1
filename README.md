@@ -1,22 +1,34 @@
 
 # INF1304-T1
-## 🏭 Projeto Kafka Fábrica Inteligente  
+## 🏭 Projeto Kafka Fábrica Inteligente
 
-Sistema de monitoramento de sensores em uma fábrica inteligente utilizando **Apache Kafka** em um cluster **Docker**.  
-O objetivo é garantir **balanceamento de carga**, **tolerância a falhas** e **failover automático** entre consumidores e brokers.  
+Sistema de monitoramento de sensores em uma fábrica inteligente utilizando **Apache Kafka** em um cluster **Docker**.
+O objetivo é garantir **balanceamento de carga**, **tolerância a falhas** e **failover automático** entre consumidores e brokers.
+
+---
+
+## 📌 Objetivo
+
+- Criar um cluster Kafka com múltiplos brokers.
+- Simular sensores como produtores Kafka.
+- Implementar consumidores Kafka em Java com balanceamento automático.
+- Registrar dados e alertas em banco de dados.
+- Demonstrar falhas e rebalanceamento automático.
 
 ---
 
-## 📌 Objetivo  
+## Critério para determinação de anomalias
 
-- Criar um cluster Kafka com múltiplos brokers.  
-- Simular sensores como produtores Kafka.  
-- Implementar consumidores Kafka em Java com balanceamento automático.  
-- Registrar dados e alertas em banco de dados.  
-- Demonstrar falhas e rebalanceamento automático.  
+temperatura > 50 graus celsius - alta
+temperatura < 10 graus celsius - baixa
+vibracao > 4.0 - alta
+vibracao < 1.0 - baixa
+consumo de energia > 400 - alto
+consumo de energia < 80 - baixo
 
----
-## 🗂 Arquitetura de Diretórios  
+
+
+## 🗂 Arquitetura de Diretórios
 
 ```bash
 projeto-kafka-fabrica/
@@ -38,7 +50,7 @@ projeto-kafka-fabrica/
 │
 ├── frontend-python/               # Dashboard / visualização
 │   ├── app/
-│   │   ├── main.py                 
+│   │   ├── main.py
 │   │   ├── services/               # Conexão ao banco de dados
 │   │   ├── views/                  # Páginas/telas
 │   │   └── static/                 # HTML/CSS/JS
@@ -59,3 +71,4 @@ projeto-kafka-fabrica/
 │   ├── kill-broker.sh
 │   ├── kill-consumer.sh
 └── logs/                          # Logs de execução dos Dockers
+
