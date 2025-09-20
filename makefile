@@ -14,10 +14,12 @@ stop:
 	docker stop kafka2 || true
 	docker stop kafka3 || true
 	docker stop sensor || true
+	docker stop consumer || true
 	docker rm sensor || true
 	docker rm kafka1 || true
 	docker rm kafka2 || true
 	docker rm kafka3 || true
+	docker rm consumer || true
 	docker ps -a
 
 # Constrói as imagens
