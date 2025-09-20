@@ -46,11 +46,64 @@ public class KafkaConsumerService {
     private void process(SensorData sensorData) {
         // Simple processing: log the received data
         logger.info("Received sensor data: {}", sensorData);
+        detecta_anomalias(sensorData);
 
-        // Anomaly detection
-        if (sensorData.getSensores().getTemperatura().getValor() > 50) {
-            logger.warn("High temperature detected! Machine: {}, Temperature: {}",
-                    sensorData.getIdMaquina(), sensorData.getSensores().getTemperatura().getValor());
+    }
+
+    /**
+     * Detecta anomalias nos dados dos sensores e ajusta os valores conforme necessário.
+     * @param sensorData
+     */
+    private void detecta_anomalias(SensorData sensorData) {
+
+        final float temperatura = sensorData.getSensores().getTemperatura().getValor();
+        final float vibracao = sensorData.getSensores().getVibracao().getValor();
+        final float consumoEnergia = sensorData.getSensores().getConsumoEnergia().getValor();
+        final int idMaquina = sensorData.getIdMaquina();
+        final String setor = sensorData.getSetor();
+
+
+        if (temperatura > 50) {
+            logger.warn("High temperature detected! Machine: {}, Sector: {}, Temperature: {}. Lowering temperature to 50.",
+                    idMaquina, setor, temperatura);
+            //setar a temperatura para 50
+            sensorData.getSensores().getTemperatura().setValor(50);
         }
+
+        if(temperatura < 10){
+            logger.warn("Low temperature detected! Machine: {}, Sector: {}, Temperature: {}. Raising temperature to 10.",
+                    idMaquina, setor, temperatura);
+            //setar a temperatura para 10
+            sensorData.getSensores().getTemperatura().setValor(10);
+        }
+
+        if (vibracao > 4.0) {
+            logger.warn("High vibration detected! Machine: {}, Sector: {}, Vibration: {}. Lowering vibration to 4.0.",
+                    idMaquina, setor, vibracao);
+            //setar a vibracao para 4.0
+            sensorData.getSensores().getVibracao().setValor(4.0);
+        }
+
+        if (consumoEnergia > 400.0) {
+            logger.warn("High energy consumption detected! Machine: {}, Sector: {}, Energy Consumption: {}. Lowering energy consumption to 400.0.",
+                    idMaquina, setor, consumoEnergia);
+            //setar o consumo de energia para 400.0
+            sensorData.getSensores().getConsumoEnergia().setValor(400.0);
+        }
+
+        if(vibracao < 1.0){
+            logger.warn("Low vibration detected! Machine: {}, Sector: {}, Vibration: {}. Raising vibration to 1.0.",
+                    idMaquina, setor, vibracao);
+            //setar a vibracao para 1.0
+            sensorData.getSensores().getVibracao().setValor(1.0);
+        }
+
+        if(consumoEnergia < 100.0){
+            logger.warn("Low energy consumption detected! Machine: {}, Sector: {}, Energy Consumption: {}. Raising energy consumption to 100.0.",
+                    idMaquina, setor, consumoEnergia);
+            //setar o consumo de energia para 100.0
+            sensorData.getSensores().getConsumoEnergia().setValor(100.0);
+        }
+
     }
 }

@@ -2,6 +2,7 @@
 #variaveis
 
 PRODUCER_DIR = sensor
+CONSUMER_DIR = consumer
 
 #TODO: ainda nao temos tudo para rodar tudo
 all:
@@ -50,6 +51,10 @@ logs-producer:
 logs-kafka:
 	@echo "Mostrando logs do Kafka..."
 	docker-compose logs -f kafka
+
+logs-consumer:
+	@echo "Mostrando logs do Consumer..."
+	docker-compose logs -f consumer
 
 # Sobe o frontend
 frontend:
