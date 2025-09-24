@@ -21,7 +21,7 @@ SETORES = ["linha_producao", "refrigeracao", "empacotamento"]
 
 #TODO : ver se o min e max fazem sentido
 TIPOS_SENSORES = {
-    "temperatura": {"min": 20.0, "max": 80.0, "unidade": "C"},
+    "temperatura": {"min": 2.0, "max": 80.0, "unidade": "C"},
     "vibracao": {"min": 0.5, "max": 5.0, "unidade": "mm/s"},
     "consumo_energia": {"min": 50.0, "max": 500.0, "unidade": "kW"}
 }
