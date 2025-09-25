@@ -93,6 +93,7 @@ public class KafkaConsumerService {
      */
     private void detecta_anomalias(SensorData sensorData) {
 
+
         final double temperatura = sensorData.getSensores().getTemperatura().getValor();
         final double vibracao = sensorData.getSensores().getVibracao().getValor();
         final double consumoEnergia = sensorData.getSensores().getConsumoEnergia().getValor();
