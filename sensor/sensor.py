@@ -13,7 +13,10 @@ import time
 from datetime import datetime
 from kafka import KafkaProducer,KafkaAdminClient
 
+# Configura o stdout para flush imediato
 sys.stdout.reconfigure(line_buffering=True)
+# Semente para reprodutibilidade
+random.seed(datetime.now().timestamp())
 
 # Configurações da simulação
 #TODO : ver se tem mais setores

@@ -14,35 +14,72 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
 
+/**
+ * Classe de serviço para consumir dados de sensores do Kafka.
+ * Esta classe lida com a configuração do consumidor Kafka, consumo de mensagens 
+ * e processamento dos dados dos sensores.
+ */
 public class KafkaConsumerService {
 
+    /**
+     * Logger para esta classe.
+     */
     private static final Logger logger = LoggerFactory.getLogger(KafkaConsumerService.class);
+    
+    /**
+     * Instância do consumidor Kafka.
+     */
     private final KafkaConsumer<String, String> consumer;
+    
+    /**
+     * ObjectMapper para desserializar mensagens JSON.
+     */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Constrói um KafkaConsumerService e inicializa o consumidor Kafka.
+     * 
+     * @throws IOException se houver um erro ao carregar as propriedades de configuração
+     */
     public KafkaConsumerService() throws IOException {
+        // Carrega a configuração do consumidor Kafka do arquivo de propriedades
         Properties props = new Properties();
         props.load(new FileReader("src/main/resources/application.properties"));
         this.consumer = new KafkaConsumer<>(props);
     }
 
+    /**
+     * Inicia o consumo de mensagens do tópico Kafka.
+     * Este método se inscreve no tópico "dados-sensores" e continuamente faz polling por novas mensagens.
+     * Cada mensagem é desserializada e processada.
+     */
     public void consume() {
+        // Inscreve-se no tópico Kafka
         consumer.subscribe(Collections.singletonList("dados-sensores"));
-        logger.info("Consumer started, subscribed to topic 'dados-sensores'");
+        logger.info("Consumidor iniciado, inscrito no tópico 'dados-sensores'");
 
+        // Continuamente faz polling por novas mensagens
         while (true) {
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
             for (ConsumerRecord<String, String> record : records) {
                 try {
+                    // Desserializa a mensagem JSON para um objeto SensorData
                     SensorData sensorData = objectMapper.readValue(record.value(), SensorData.class);
                     process(sensorData);
                 } catch (IOException e) {
-                    logger.error("Error deserializing message: " + record.value(), e);
+                    // Registra quaisquer erros de desserialização
+                    logger.error("Erro ao desserializar a mensagem: " + record.value(), e);
                 }
             }
         }
     }
 
+    /**
+     * Processa os dados do sensor recebidos.
+     * Este método registra os dados recebidos e realiza a detecção básica de anomalias.
+     * 
+     * @param sensorData os dados do sensor a serem processados
+     */
     private void process(SensorData sensorData) {
         // Simple processing: log the received data
         logger.info("Received sensor data: {}", sensorData);
@@ -56,10 +93,11 @@ public class KafkaConsumerService {
      */
     private void detecta_anomalias(SensorData sensorData) {
 
-        final float temperatura = sensorData.getSensores().getTemperatura().getValor();
-        final float vibracao = sensorData.getSensores().getVibracao().getValor();
-        final float consumoEnergia = sensorData.getSensores().getConsumoEnergia().getValor();
-        final int idMaquina = sensorData.getIdMaquina();
+
+        final double temperatura = sensorData.getSensores().getTemperatura().getValor();
+        final double vibracao = sensorData.getSensores().getVibracao().getValor();
+        final double consumoEnergia = sensorData.getSensores().getConsumoEnergia().getValor();
+        final String idMaquina = sensorData.getIdMaquina();
         final String setor = sensorData.getSetor();
 
 
