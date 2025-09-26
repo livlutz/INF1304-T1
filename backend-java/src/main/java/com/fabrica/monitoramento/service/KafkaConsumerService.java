@@ -16,7 +16,7 @@ import java.util.Properties;
 
 /**
  * Classe de serviço para consumir dados de sensores do Kafka.
- * Esta classe lida com a configuração do consumidor Kafka, consumo de mensagens 
+ * Esta classe lida com a configuração do consumidor Kafka, consumo de mensagens
  * e processamento dos dados dos sensores.
  */
 public class KafkaConsumerService {
@@ -25,12 +25,12 @@ public class KafkaConsumerService {
      * Logger para esta classe.
      */
     private static final Logger logger = LoggerFactory.getLogger(KafkaConsumerService.class);
-    
+
     /**
      * Instância do consumidor Kafka.
      */
     private final KafkaConsumer<String, String> consumer;
-    
+
     /**
      * ObjectMapper para desserializar mensagens JSON.
      */
@@ -38,7 +38,7 @@ public class KafkaConsumerService {
 
     /**
      * Constrói um KafkaConsumerService e inicializa o consumidor Kafka.
-     * 
+     *
      * @throws IOException se houver um erro ao carregar as propriedades de configuração
      */
     public KafkaConsumerService() throws IOException {
@@ -77,7 +77,7 @@ public class KafkaConsumerService {
     /**
      * Processa os dados do sensor recebidos.
      * Este método registra os dados recebidos e realiza a detecção básica de anomalias.
-     * 
+     *
      * @param sensorData os dados do sensor a serem processados
      */
     private void process(SensorData sensorData) {
@@ -92,55 +92,111 @@ public class KafkaConsumerService {
      * @param sensorData
      */
     private void detecta_anomalias(SensorData sensorData) {
-
-
+        //Variavel para armazenar a temperatura da maquina emitida pelo sensor
         final double temperatura = sensorData.getSensores().getTemperatura().getValor();
+
+        //Variavel para armazenar a vibracao da maquina emitida pelo sensor
         final double vibracao = sensorData.getSensores().getVibracao().getValor();
+
+        //Variavel para armazenar o consumo de energia da maquina emitida pelo sensor
         final double consumoEnergia = sensorData.getSensores().getConsumoEnergia().getValor();
+
+        //Variavel para armazenar a pressao da maquina emitida pelo sensor
+        final double pressao = sensorData.getSensores().getPressao().getValor();
+
+        //Variavel para armazenar a umidade da maquina emitida pelo sensor
+        final double umidade = sensorData.getSensores().getUmidade().getValor();
+
+        //Variavel para armazenar o id da maquina emitido pelo sensor
         final String idMaquina = sensorData.getIdMaquina();
+
+        //Variavel para armazenar o setor da maquina analisada pelo sensor
         final String setor = sensorData.getSetor();
 
+        /**
+         * Regras de detecção de anomalias:
+         * Temperatura > 50°C -> muito alta
+         * Vibração > 4.0 mm/s -> muito alta
+         * Consumo de Energia > 400 kW -> muito alto
+         * Pressão > 8.0 bar -> muito alta
+         * Umidade > 80% -> muito alta
+         *
+         * Temperatura < 10°C -> muito baixa
+         * Vibração < 1.0 mm/s -> muito baixa
+         * Consumo de Energia < 100 kW -> muito baixo
+         * Pressão < 2.0 bar -> muito baixa
+         * Umidade < 30% -> muito baixa
+         *
+         * No caso do valor detectado ser uma anomalia, o valor é ajustado para o limite aceitável mais próximo.
+         */
 
         if (temperatura > 50) {
             logger.warn("High temperature detected! Machine: {}, Sector: {}, Temperature: {}. Lowering temperature to 50.",
                     idMaquina, setor, temperatura);
-            //setar a temperatura para 50
+            //muda a temperatura para 50
             sensorData.getSensores().getTemperatura().setValor(50);
         }
 
         if(temperatura < 10){
             logger.warn("Low temperature detected! Machine: {}, Sector: {}, Temperature: {}. Raising temperature to 10.",
                     idMaquina, setor, temperatura);
-            //setar a temperatura para 10
+            //muda a temperatura para 10
             sensorData.getSensores().getTemperatura().setValor(10);
         }
 
         if (vibracao > 4.0) {
             logger.warn("High vibration detected! Machine: {}, Sector: {}, Vibration: {}. Lowering vibration to 4.0.",
                     idMaquina, setor, vibracao);
-            //setar a vibracao para 4.0
+            //muda a vibracao para 4.0
             sensorData.getSensores().getVibracao().setValor(4.0);
         }
 
         if (consumoEnergia > 400.0) {
             logger.warn("High energy consumption detected! Machine: {}, Sector: {}, Energy Consumption: {}. Lowering energy consumption to 400.0.",
                     idMaquina, setor, consumoEnergia);
-            //setar o consumo de energia para 400.0
+            //muda o consumo de energia para 400.0
             sensorData.getSensores().getConsumoEnergia().setValor(400.0);
         }
 
         if(vibracao < 1.0){
             logger.warn("Low vibration detected! Machine: {}, Sector: {}, Vibration: {}. Raising vibration to 1.0.",
                     idMaquina, setor, vibracao);
-            //setar a vibracao para 1.0
+            //muda a vibracao para 1.0
             sensorData.getSensores().getVibracao().setValor(1.0);
         }
 
         if(consumoEnergia < 100.0){
             logger.warn("Low energy consumption detected! Machine: {}, Sector: {}, Energy Consumption: {}. Raising energy consumption to 100.0.",
                     idMaquina, setor, consumoEnergia);
-            //setar o consumo de energia para 100.0
+            //muda o consumo de energia para 100.0
             sensorData.getSensores().getConsumoEnergia().setValor(100.0);
+        }
+
+        if(pressao > 8.0){
+            logger.warn("High pressure detected! Machine: {}, Sector: {}, Pressure: {}. Lowering pressure to 8.0.",
+                    idMaquina, setor, pressao);
+            //muda a pressao para 8.0
+            sensorData.getSensores().getPressao().setValor(8.0);
+        }
+        if(pressao < 2.0){
+            logger.warn("Low pressure detected! Machine: {}, Sector: {}, Pressure: {}. Raising pressure to 2.0.",
+                    idMaquina, setor, pressao);
+            //muda a pressao para 2.0
+            sensorData.getSensores().getPressao().setValor(2.0);
+        }
+
+        if(umidade > 80.0){
+            logger.warn("High humidity detected! Machine: {}, Sector: {}, Humidity: {}. Lowering humidity to 80.0.",
+                    idMaquina, setor, umidade);
+            //muda a umidade para 80.0
+            sensorData.getSensores().getUmidade().setValor(80.0);
+        }
+
+        if(umidade < 30.0){
+            logger.warn("Low humidity detected! Machine: {}, Sector: {}, Humidity: {}. Raising humidity to 30.0.",
+                    idMaquina, setor, umidade);
+            //muda a umidade para 30.0
+            sensorData.getSensores().getUmidade().setValor(30.0);
         }
 
     }

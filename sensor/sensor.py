@@ -20,13 +20,15 @@ random.seed(datetime.now().timestamp())
 
 # Configurações da simulação
 #TODO : ver se tem mais setores
-SETORES = ["linha_producao", "refrigeracao", "empacotamento"]
+SETORES = ["linha_producao", "refrigeração", "empacotamento","montagem","inspeção","manutenção","soldagem","transporte","qualidade"]
 
 #TODO : ver se o min e max fazem sentido
 TIPOS_SENSORES = {
     "temperatura": {"min": 2.0, "max": 80.0, "unidade": "C"},
     "vibracao": {"min": 0.5, "max": 5.0, "unidade": "mm/s"},
-    "consumo_energia": {"min": 50.0, "max": 500.0, "unidade": "kW"}
+    "consumo_energia": {"min": 50.0, "max": 500.0, "unidade": "kW"},
+    "pressao": {"min": 1.0, "max": 10.0, "unidade": "bar"},
+    "umidade": {"min": 20.0, "max": 90.0, "unidade": "%"},
 }
 
 #dados-sensores sera o nome do topico kafka que o sensor vai enviar as mensagens
