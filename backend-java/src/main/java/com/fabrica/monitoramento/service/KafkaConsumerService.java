@@ -60,7 +60,7 @@ public class KafkaConsumerService {
 
         // Continuamente faz polling por novas mensagens
         while (true) {
-            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ZERO);
             for (ConsumerRecord<String, String> record : records) {
                 try {
                     // Desserializa a mensagem JSON para um objeto SensorData
