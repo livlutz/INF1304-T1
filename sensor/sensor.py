@@ -108,3 +108,7 @@ if __name__ == "__main__":
 
         producer.flush()
         producer.close()
+        # Espera um tempo antes de gerar o próximo lote
+        tempo_espera = random.randint(5, 15)
+        print(f"Aguardando {tempo_espera} segundos para o próximo lote...", flush=True)
+        time.sleep(tempo_espera)
