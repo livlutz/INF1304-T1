@@ -24,9 +24,22 @@ public class Sensor {
     @JsonProperty("consumo_energia")
     private SensorValue consumoEnergia;
 
+     /**
+     * Valor do sensor de pressão.
+     * Mapeado da propriedade JSON "pressao".
+     */
+    @JsonProperty("pressao")
+    private SensorValue pressao;
+
+    /**
+     * Valor do sensor de umidade.
+     * Mapeado da propriedade JSON "umidade".
+     */
+    private SensorValue umidade;
+
     /**
      * Obtém o valor do sensor de temperatura.
-     * 
+     *
      * @return o valor do sensor de temperatura
      */
     public SensorValue getTemperatura() {
@@ -35,7 +48,7 @@ public class Sensor {
 
     /**
      * Define o valor do sensor de temperatura.
-     * 
+     *
      * @param temperatura o valor do sensor de temperatura a ser definido
      */
     public void setTemperatura(SensorValue temperatura) {
@@ -44,7 +57,7 @@ public class Sensor {
 
     /**
      * Obtém o valor do sensor de vibração.
-     * 
+     *
      * @return o valor do sensor de vibração
      */
     public SensorValue getVibracao() {
@@ -53,7 +66,7 @@ public class Sensor {
 
     /**
      * Define o valor do sensor de vibração.
-     * 
+     *
      * @param vibracao o valor do sensor de vibração a ser definido
      */
     public void setVibracao(SensorValue vibracao) {
@@ -62,7 +75,7 @@ public class Sensor {
 
     /**
      * Obtém o valor do sensor de consumo de energia.
-     * 
+     *
      * @return o valor do sensor de consumo de energia
      */
     public SensorValue getConsumoEnergia() {
@@ -71,11 +84,47 @@ public class Sensor {
 
     /**
      * Define o valor do sensor de consumo de energia.
-     * 
+     *
      * @param consumoEnergia o valor do sensor de consumo de energia a ser definido
      */
     public void setConsumoEnergia(SensorValue consumoEnergia) {
         this.consumoEnergia = consumoEnergia;
+    }
+
+    /**
+     * Obtém o valor do sensor de pressão.
+     *
+     * @return o valor do sensor de pressão
+     */
+    public SensorValue getPressao() {
+        return pressao;
+    }
+
+    /**
+     * Define o valor do sensor de pressão.
+     *
+     * @param pressao o valor do sensor de pressão a ser definido
+     */
+    public void setPressao(SensorValue pressao) {
+        this.pressao = pressao;
+    }
+
+    /**
+     * Obtém o valor do sensor de umidade.
+     *
+     * @return o valor do sensor de umidade
+     */
+    public SensorValue getUmidade() {
+        return umidade;
+    }
+
+    /**
+     * Define o valor do sensor de umidade.
+     *
+     * @param umidade o valor do sensor de umidade a ser definido
+     */
+    public void setUmidade(SensorValue umidade) {
+        this.umidade = umidade;
     }
 
     @Override
@@ -84,6 +133,8 @@ public class Sensor {
                 "temperatura=" + temperatura +
                 ", vibracao=" + vibracao +
                 ", consumoEnergia=" + consumoEnergia +
+                ", pressao=" + pressao +
+                ", umidade=" + umidade +
                 '}';
     }
 }
