@@ -13,17 +13,22 @@ import time
 from datetime import datetime
 from kafka import KafkaProducer,KafkaAdminClient
 
+# Configura o stdout para flush imediato
 sys.stdout.reconfigure(line_buffering=True)
+# Semente para reprodutibilidade
+random.seed(datetime.now().timestamp())
 
 # Configurações da simulação
 #TODO : ver se tem mais setores
-SETORES = ["linha_producao", "refrigeracao", "empacotamento"]
+SETORES = ["linha_producao", "refrigeração", "empacotamento","montagem","inspeção","manutenção","soldagem","transporte","qualidade"]
 
 #TODO : ver se o min e max fazem sentido
 TIPOS_SENSORES = {
     "temperatura": {"min": 2.0, "max": 80.0, "unidade": "C"},
     "vibracao": {"min": 0.5, "max": 5.0, "unidade": "mm/s"},
-    "consumo_energia": {"min": 50.0, "max": 500.0, "unidade": "kW"}
+    "consumo_energia": {"min": 50.0, "max": 500.0, "unidade": "kW"},
+    "pressao": {"min": 1.0, "max": 10.0, "unidade": "bar"},
+    "umidade": {"min": 20.0, "max": 90.0, "unidade": "%"},
 }
 
 #dados-sensores sera o nome do topico kafka que o sensor vai enviar as mensagens
@@ -51,27 +56,20 @@ def gerar_dados_maquina():
 
     return dados_maquina
 
-def criar_producer(retries=10, delay=5):
-    """"
-    Cria um KafkaProducer com tentativas de reconexão.
-    retries: número de tentativas
-    delay: tempo de espera entre tentativas (em segundos)
+def criar_producer():
+    """
+    Cria um KafkaProducer sem tentativas de reconexão.
     Retorna o producer se a conexão for bem-sucedida, caso contrário, levanta uma exceção.
     """
-    for i in range(retries):
-        try:
-            producer = KafkaProducer(
-                bootstrap_servers=KAFKA_BROKERS,
-                retries=5
-            )
-            print(f"Conectado ao Kafka! Brokers tentados: {KAFKA_BROKERS}", flush=True)
-            return producer
-
-        except Exception as e:
-            print(f"Tentativa {i+1}/{retries} falhou: {e}", flush=True)
-            time.sleep(delay)
-
-    raise Exception("Não foi possível conectar ao Kafka.")
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers=KAFKA_BROKERS
+        )
+        print(f"Conectado ao Kafka! Brokers tentados: {KAFKA_BROKERS}", flush=True)
+        return producer
+    except Exception as e:
+        print(f"Falha ao conectar ao Kafka: {e}", flush=True)
+        raise
 
 def obter_lider(topico, particao):
     try:
@@ -112,5 +110,7 @@ if __name__ == "__main__":
 
         producer.flush()
         producer.close()
-
-        time.sleep(5)
+        # Espera um tempo antes de gerar o próximo lote
+        tempo_espera = random.randint(5, 15)
+        print(f"Aguardando {tempo_espera} segundos para o próximo lote...", flush=True)
+        time.sleep(tempo_espera)
