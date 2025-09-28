@@ -56,27 +56,20 @@ def gerar_dados_maquina():
 
     return dados_maquina
 
-def criar_producer(retries=10, delay=5):
-    """"
-    Cria um KafkaProducer com tentativas de reconexão.
-    retries: número de tentativas
-    delay: tempo de espera entre tentativas (em segundos)
+def criar_producer():
+    """
+    Cria um KafkaProducer sem tentativas de reconexão.
     Retorna o producer se a conexão for bem-sucedida, caso contrário, levanta uma exceção.
     """
-    for i in range(retries):
-        try:
-            producer = KafkaProducer(
-                bootstrap_servers=KAFKA_BROKERS,
-                retries=5
-            )
-            print(f"Conectado ao Kafka! Brokers tentados: {KAFKA_BROKERS}", flush=True)
-            return producer
-
-        except Exception as e:
-            print(f"Tentativa {i+1}/{retries} falhou: {e}", flush=True)
-            time.sleep(delay)
-
-    raise Exception("Não foi possível conectar ao Kafka.")
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers=KAFKA_BROKERS
+        )
+        print(f"Conectado ao Kafka! Brokers tentados: {KAFKA_BROKERS}", flush=True)
+        return producer
+    except Exception as e:
+        print(f"Falha ao conectar ao Kafka: {e}", flush=True)
+        raise
 
 def obter_lider(topico, particao):
     try:
@@ -117,5 +110,7 @@ if __name__ == "__main__":
 
         producer.flush()
         producer.close()
-
-        time.sleep(5)
+        # Espera um tempo antes de gerar o próximo lote
+        tempo_espera = random.randint(5, 15)
+        print(f"Aguardando {tempo_espera} segundos para o próximo lote...", flush=True)
+        time.sleep(tempo_espera)

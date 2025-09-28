@@ -1,4 +1,6 @@
 
+version: "2.4"
+
 services:
   kafka1:
     container_name: kafka1
@@ -22,6 +24,8 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 2
     volumes:
       - kafka1_logs:/var/lib/kafka/data/
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
     deploy:
       resources:
         limits:
@@ -53,6 +57,8 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 2
     volumes:
       - kafka2_logs:/var/lib/kafka/data/
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9093"]
     deploy:
       resources:
         limits:
@@ -84,6 +90,8 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 2
     volumes:
       - kafka3_logs:/var/lib/kafka/data/
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9094"]
     deploy:
       resources:
         limits:
@@ -96,12 +104,15 @@ services:
   sensor:
     container_name: sensor
     build: ./sensor
-    #ports:
-    #  - "8080:8080" 
+    ports:
+      - "8080:8080" 
     depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -119,9 +130,12 @@ services:
     container_name: consumer
     build: ./backend-java
     depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
     deploy:
       resources:
         limits:

@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Classe de serviço para consumir dados de sensores do Kafka.
@@ -37,7 +39,12 @@ public class KafkaConsumerService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Constrói um KafkaConsumerService e inicializa o consumidor Kafka.
+     * Pool de threads para processar anomalias.
+     */
+    private final ExecutorService executorService;
+
+    /**
+     * Constrói um KafkaConsumerService e inicializa o consumidor Kafka e o pool de threads.
      *
      * @throws IOException se houver um erro ao carregar as propriedades de configuração
      */
@@ -46,6 +53,7 @@ public class KafkaConsumerService {
         Properties props = new Properties();
         props.load(new FileReader("src/main/resources/application.properties"));
         this.consumer = new KafkaConsumer<>(props);
+        this.executorService = Executors.newFixedThreadPool(10);
     }
 
     /**
@@ -60,7 +68,7 @@ public class KafkaConsumerService {
 
         // Continuamente faz polling por novas mensagens
         while (true) {
-            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ZERO);
             for (ConsumerRecord<String, String> record : records) {
                 try {
                     // Desserializa a mensagem JSON para um objeto SensorData
@@ -76,7 +84,7 @@ public class KafkaConsumerService {
 
     /**
      * Processa os dados do sensor recebidos.
-     * Este método registra os dados recebidos e realiza a detecção básica de anomalias.
+     * Este método registra os dados recebidos e realiza a detecção de anomalias.
      *
      * @param sensorData os dados do sensor a serem processados
      */
@@ -84,15 +92,13 @@ public class KafkaConsumerService {
         // Simple processing: log the received data
         logger.info("Received sensor data: {}", sensorData);
         detecta_anomalias(sensorData);
-
     }
 
     /**
-     * Detecta anomalias nos dados dos sensores e ajusta os valores conforme necessário.
+     * Detecta anomalias nos dados dos sensores e submete o tratamento para threads separadas.
      * @param sensorData
      */
     private void detecta_anomalias(SensorData sensorData) {
-        //Variavel para armazenar a temperatura da maquina emitida pelo sensor
         final double temperatura = sensorData.getSensores().getTemperatura().getValor();
 
         //Variavel para armazenar a vibracao da maquina emitida pelo sensor
@@ -101,103 +107,59 @@ public class KafkaConsumerService {
         //Variavel para armazenar o consumo de energia da maquina emitida pelo sensor
         final double consumoEnergia = sensorData.getSensores().getConsumoEnergia().getValor();
 
-        //Variavel para armazenar a pressao da maquina emitida pelo sensor
-        final double pressao = sensorData.getSensores().getPressao().getValor();
-
-        //Variavel para armazenar a umidade da maquina emitida pelo sensor
-        final double umidade = sensorData.getSensores().getUmidade().getValor();
-
-        //Variavel para armazenar o id da maquina emitido pelo sensor
-        final String idMaquina = sensorData.getIdMaquina();
-
-        //Variavel para armazenar o setor da maquina analisada pelo sensor
-        final String setor = sensorData.getSetor();
-
-        /**
-         * Regras de detecção de anomalias:
-         * Temperatura > 50°C -> muito alta
-         * Vibração > 4.0 mm/s -> muito alta
-         * Consumo de Energia > 400 kW -> muito alto
-         * Pressão > 8.0 bar -> muito alta
-         * Umidade > 80% -> muito alta
-         *
-         * Temperatura < 10°C -> muito baixa
-         * Vibração < 1.0 mm/s -> muito baixa
-         * Consumo de Energia < 100 kW -> muito baixo
-         * Pressão < 2.0 bar -> muito baixa
-         * Umidade < 30% -> muito baixa
-         *
-         * No caso do valor detectado ser uma anomalia, o valor é ajustado para o limite aceitável mais próximo.
-         */
-
         if (temperatura > 50) {
-            logger.warn("High temperature detected! Machine: {}, Sector: {}, Temperature: {}. Lowering temperature to 50.",
-                    idMaquina, setor, temperatura);
-            //muda a temperatura para 50
-            sensorData.getSensores().getTemperatura().setValor(50);
+            executorService.submit(() -> handleHighTemperature(sensorData));
         }
-
-        if(temperatura < 10){
-            logger.warn("Low temperature detected! Machine: {}, Sector: {}, Temperature: {}. Raising temperature to 10.",
-                    idMaquina, setor, temperatura);
-            //muda a temperatura para 10
-            sensorData.getSensores().getTemperatura().setValor(10);
+        if (temperatura < 10) {
+            executorService.submit(() -> handleLowTemperature(sensorData));
         }
-
         if (vibracao > 4.0) {
-            logger.warn("High vibration detected! Machine: {}, Sector: {}, Vibration: {}. Lowering vibration to 4.0.",
-                    idMaquina, setor, vibracao);
-            //muda a vibracao para 4.0
-            sensorData.getSensores().getVibracao().setValor(4.0);
+            executorService.submit(() -> handleHighVibration(sensorData));
         }
-
+        if (vibracao < 1.0) {
+            executorService.submit(() -> handleLowVibration(sensorData));
+        }
         if (consumoEnergia > 400.0) {
-            logger.warn("High energy consumption detected! Machine: {}, Sector: {}, Energy Consumption: {}. Lowering energy consumption to 400.0.",
-                    idMaquina, setor, consumoEnergia);
-            //muda o consumo de energia para 400.0
-            sensorData.getSensores().getConsumoEnergia().setValor(400.0);
+            executorService.submit(() -> handleHighEnergyConsumption(sensorData));
         }
+        if (consumoEnergia < 100.0) {
+            executorService.submit(() -> handleLowEnergyConsumption(sensorData));
+        }
+    }
 
-        if(vibracao < 1.0){
-            logger.warn("Low vibration detected! Machine: {}, Sector: {}, Vibration: {}. Raising vibration to 1.0.",
-                    idMaquina, setor, vibracao);
-            //muda a vibracao para 1.0
-            sensorData.getSensores().getVibracao().setValor(1.0);
-        }
+    private void handleHighTemperature(SensorData sensorData) {
+        logger.warn("High temperature detected! Machine: {}, Sector: {}, Temperature: {}. Lowering temperature to 50.",
+                sensorData.getIdMaquina(), sensorData.getSetor(), sensorData.getSensores().getTemperatura().getValor());
+        sensorData.getSensores().getTemperatura().setValor(50);
+    }
 
-        if(consumoEnergia < 100.0){
-            logger.warn("Low energy consumption detected! Machine: {}, Sector: {}, Energy Consumption: {}. Raising energy consumption to 100.0.",
-                    idMaquina, setor, consumoEnergia);
-            //muda o consumo de energia para 100.0
-            sensorData.getSensores().getConsumoEnergia().setValor(100.0);
-        }
+    private void handleLowTemperature(SensorData sensorData) {
+        logger.warn("Low temperature detected! Machine: {}, Sector: {}, Temperature: {}. Raising temperature to 10.",
+                sensorData.getIdMaquina(), sensorData.getSetor(), sensorData.getSensores().getTemperatura().getValor());
+        sensorData.getSensores().getTemperatura().setValor(10);
+    }
 
-        if(pressao > 8.0){
-            logger.warn("High pressure detected! Machine: {}, Sector: {}, Pressure: {}. Lowering pressure to 8.0.",
-                    idMaquina, setor, pressao);
-            //muda a pressao para 8.0
-            sensorData.getSensores().getPressao().setValor(8.0);
-        }
-        if(pressao < 2.0){
-            logger.warn("Low pressure detected! Machine: {}, Sector: {}, Pressure: {}. Raising pressure to 2.0.",
-                    idMaquina, setor, pressao);
-            //muda a pressao para 2.0
-            sensorData.getSensores().getPressao().setValor(2.0);
-        }
+    private void handleHighVibration(SensorData sensorData) {
+        logger.warn("High vibration detected! Machine: {}, Sector: {}, Vibration: {}. Lowering vibration to 4.0.",
+                sensorData.getIdMaquina(), sensorData.getSetor(), sensorData.getSensores().getVibracao().getValor());
+        sensorData.getSensores().getVibracao().setValor(4.0);
+    }
 
-        if(umidade > 80.0){
-            logger.warn("High humidity detected! Machine: {}, Sector: {}, Humidity: {}. Lowering humidity to 80.0.",
-                    idMaquina, setor, umidade);
-            //muda a umidade para 80.0
-            sensorData.getSensores().getUmidade().setValor(80.0);
-        }
+    private void handleLowVibration(SensorData sensorData) {
+        logger.warn("Low vibration detected! Machine: {}, Sector: {}, Vibration: {}. Raising vibration to 1.0.",
+                sensorData.getIdMaquina(), sensorData.getSetor(), sensorData.getSensores().getVibracao().getValor());
+        sensorData.getSensores().getVibracao().setValor(1.0);
+    }
 
-        if(umidade < 30.0){
-            logger.warn("Low humidity detected! Machine: {}, Sector: {}, Humidity: {}. Raising humidity to 30.0.",
-                    idMaquina, setor, umidade);
-            //muda a umidade para 30.0
-            sensorData.getSensores().getUmidade().setValor(30.0);
-        }
+    private void handleHighEnergyConsumption(SensorData sensorData) {
+        logger.warn("High energy consumption detected! Machine: {}, Sector: {}, Energy Consumption: {}. Lowering energy consumption to 400.0.",
+                sensorData.getIdMaquina(), sensorData.getSetor(), sensorData.getSensores().getConsumoEnergia().getValor());
+        sensorData.getSensores().getConsumoEnergia().setValor(400.0);
+    }
 
+    private void handleLowEnergyConsumption(SensorData sensorData) {
+        logger.warn("Low energy consumption detected! Machine: {}, Sector: {}, Energy Consumption: {}. Raising energy consumption to 100.0.",
+                sensorData.getIdMaquina(), sensorData.getSetor(), sensorData.getSensores().getConsumoEnergia().getValor());
+        sensorData.getSensores().getConsumoEnergia().setValor(100.0);
     }
 }
