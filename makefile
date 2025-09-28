@@ -3,14 +3,14 @@
 
 PRODUCER_DIR = sensor
 CONSUMER_DIR = consumer
+FRONTEND_DIR = frontend
 
 #TODO: ainda nao temos tudo para rodar tudo
+#TODO: adicionar o make clean depois de algum tempo??
 all:
 	make build
 	make up
 	make status
-
-	#TODO: adicionar o make up depois de algum tempo
 
 #Para e remove os containers
 stop:
@@ -74,8 +74,10 @@ logs-consumer:
 # Sobe o frontend
 frontend:
 	@echo "Iniciando frontend..."
+	docker-compose logs -f frontend
 
-# Limpa build do produtor e consumidor
+# Limpa build dos containers
+#TODO: falta limpar a do frontend
 clean:
 	@echo "Parando e removendo containers..."
 	make stop
