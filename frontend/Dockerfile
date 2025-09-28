@@ -10,10 +10,14 @@ COPY requirements.txt* ./
 RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
 
 # Copy the frontend application
-COPY main.py .
+COPY app/ ./app/
 
 # Set environment variables for Kafka
 ENV KAFKA_BOOTSTRAP_SERVERS=kafka1:9092,kafka2:9093,kafka3:9094
 
 # Run the frontend application
-CMD ["python", "-u", "main.py"]
+#CMD ["streamlit", "run", "app/main.py"]
+
+EXPOSE 8501
+
+ENTRYPOINT ["streamlit", "run", "app/main.py", "--server.port=8501", "--server.address=0.0.0.0"]

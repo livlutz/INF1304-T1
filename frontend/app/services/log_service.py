@@ -1,12 +1,11 @@
 import os
 import re
 from typing import List, Dict, Optional
-from datetime import datetime
 
 class LogService:
     """Classe para analisar logs de producer, consumer e status dos brokers Kafka."""
 
-    def __init__(self, logs_dir: str = "../../logs"):
+    def __init__(self, logs_dir: str = "INF1304-T1/logs"):
         """Função para inicializar o serviço de logs com o diretório dos logs."""
         self.logs_dir = logs_dir
 

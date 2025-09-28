@@ -147,7 +147,7 @@ services:
     container_name: frontend
     build: ./frontend
     ports:
-      - "80:80"
+      - "8501:8501"
     depends_on:
       - sensor
     deploy:
