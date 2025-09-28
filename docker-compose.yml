@@ -1,6 +1,4 @@
 
-version: "2.4"
-
 services:
   kafka1:
     container_name: kafka1
@@ -105,7 +103,7 @@ services:
     container_name: sensor
     build: ./sensor
     ports:
-      - "8080:8080" 
+      - "8080:8080"
     depends_on:
       kafka1:
         condition: service_healthy
