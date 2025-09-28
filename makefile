@@ -38,6 +38,7 @@ build:
 # Sobe os containers e captura logs do consumidor, produtor e kafkas em seus respectivos arquivos
 up:
 	make clean
+	make build
 	@echo "Subindo os containers..."
 	docker-compose up -d
 	@echo "Aguardando containers iniciarem..."

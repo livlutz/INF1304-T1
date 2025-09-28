@@ -5,7 +5,7 @@ from typing import List, Dict, Optional
 class LogService:
     """Classe para analisar logs de producer, consumer e status dos brokers Kafka."""
 
-    def __init__(self, logs_dir: str = "INF1304-T1/logs"):
+    def __init__(self, logs_dir: str = "/app/logs"):
         """Função para inicializar o serviço de logs com o diretório dos logs."""
         self.logs_dir = logs_dir
 
@@ -35,16 +35,22 @@ class LogService:
         # montando as mensagens de log do producer
         for line in content.split('\n'):
             if "Mensagem enviada para" in line:
+                # Extract partition and offset from the line format:
+                # "Mensagem enviada para dados-sensores [partição 0, offset 18636] no broker líder brokerId=3"
                 match = re.search(
-                    r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*dados-sensores.*partição (\d+).*offset (\d+)',
+                    r'Mensagem enviada para dados-sensores \[partição (\d+), offset (\d+)\]',
                     line
                 )
                 if match:
+                    # Since there's no timestamp in the producer log, use current format
+                    import datetime
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     messages.append({
-                        'timestamp': match.group(1),
-                        'partition': int(match.group(2)),
-                        'offset': int(match.group(3)),
-                        'type': 'sent'
+                        'timestamp': timestamp,
+                        'partition': int(match.group(1)),
+                        'offset': int(match.group(2)),
+                        'type': 'sent',
+                        'status': 'success'
                     })
         return messages
 
@@ -58,13 +64,25 @@ class LogService:
 
         # montando as mensagens de log do consumer
         for line in content.split('\n'):
-            if "Received sensor data" in line or "Consumer started" in line:
-                timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
+            # Look for consumer activity - config lines, connection messages, etc.
+            if ("bootstrap.servers" in line or
+                "ConsumerConfig" in line or
+                "group.id" in line or
+                "auto.offset.reset" in line):
+
+                # Extract timestamp from log format: "20:12:26.222 [main] INFO ..."
+                timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
                 if timestamp_match:
+                    # Convert to full timestamp format for consistency
+                    import datetime
+                    today = datetime.datetime.now().strftime('%Y-%m-%d')
+                    time_part = timestamp_match.group(1)[:8]  # Remove milliseconds
+                    full_timestamp = f"{today} {time_part}"
+
                     messages.append({
-                        'timestamp': timestamp_match.group(1),
+                        'timestamp': full_timestamp,
                         'message': line.strip(),
-                        'type': 'received' if 'Received' in line else 'info'
+                        'type': 'received' if 'bootstrap.servers' in line else 'info'
                     })
 
         return messages
@@ -81,15 +99,15 @@ class LogService:
                 status[broker] = "NO_LOGS"
                 continue
 
-            if "started (kafka.server.KafkaServer)" in content:
+            # Check for different status indicators in the actual log format
+            if "Transitioning from RECOVERY to RUNNING" in content:
                 status[broker] = "RUNNING"
-
-            elif "ERROR" in content:
+            elif "ERROR" in content and "RUNNING" not in content:
                 status[broker] = "ERROR"
-
-            elif "Starting" in content:
+            elif "Starting" in content or "Waiting for" in content:
                 status[broker] = "STARTING"
-
+            elif "Log directory" in content and "already formatted" in content:
+                status[broker] = "RUNNING"  # Likely running if logs are being written
             else:
                 status[broker] = "UNKNOWN"
 
