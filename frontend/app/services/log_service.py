@@ -151,18 +151,24 @@ class LogService:
                 if not line.strip():
                     continue
 
-                # Check for successful startup indicators
+                # Check for successful startup indicators (including new KRaft mode)
                 if any(indicator in line for indicator in [
                     "started (kafka.server.KafkaServer)",
                     "Kafka Server started",
                     "KafkaServer started",
-                    "[KafkaServer id="
+                    "[KafkaServer id=",
+                    "[KafkaRaftServer nodeId=",
+                    "Transition from STARTING to STARTED",
+                    "BrokerServer id=",
+                    "Endpoint is now READY"
                 ]):
                     started_found = True
 
-                # Check for error indicators
-                if any(error in line.upper() for error in ["ERROR", "FATAL", "EXCEPTION"]):
-                    error_found = True
+                # Check for critical error indicators (ignore transient startup errors)
+                if any(error in line.upper() for error in ["FATAL"]):
+                    # Only mark as error for FATAL errors, not temporary startup ERRORs
+                    if "FATAL" in line.upper():
+                        error_found = True
 
             # Check entire log for startup messages if not found in recent lines
             if not started_found:
@@ -170,7 +176,9 @@ class LogService:
                     if any(indicator in line for indicator in [
                         "started (kafka.server.KafkaServer)",
                         "Kafka Server started",
-                        "KafkaServer started"
+                        "KafkaServer started",
+                        "[KafkaRaftServer nodeId=",
+                        "Transition from STARTING to STARTED"
                     ]):
                         started_found = True
                         break
