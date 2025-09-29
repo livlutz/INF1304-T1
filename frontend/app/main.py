@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 class LogAnalyzer:
-    def __init__(self, logs_dir="/app/logs"):
+    def __init__(self, logs_dir="/workspaces/INF1304-T1/logs"):
         self.log_service = LogService(logs_dir)
 
     def read_producer_logs(self):
@@ -26,6 +26,12 @@ class LogAnalyzer:
         """Verifica status dos brokers Kafka"""
         return self.log_service.get_kafka_broker_status()
 
+    def get_anomaly_messages(self):
+        """Retorna mensagens de anomalia detectadas"""
+        return self.log_service.get_anomaly_messages()
+
+    # ...existing code...
+
     def display_streamlit_dashboard(self):
         """Exibe um dashboard Streamlit com informações dos logs"""
 
@@ -38,6 +44,7 @@ class LogAnalyzer:
         producer_msgs = self.read_producer_logs()
         consumer_msgs = self.read_consumer_logs()
         received_msgs = [m for m in consumer_msgs if m['type'] == 'received']
+        anomalies = self.get_anomaly_messages()
 
         # Create columns for layout
         col1, col2, col3 = st.columns(3)
@@ -70,22 +77,85 @@ class LogAnalyzer:
                 latest = received_msgs[-1]
                 st.text(f"Last message: {latest['timestamp']}")
 
-        # Recent Activity Section
+        # Anomalies Section - Full width
         st.markdown("---")
-        st.subheader("📋 Recent Activity")
+        col_anomalies, col_recent = st.columns(2)
 
-        # Combine and sort recent messages
-        all_recent = (producer_msgs[-3:] + received_msgs[-3:])
-        all_recent.sort(key=lambda x: x['timestamp'], reverse=True)
+        with col_anomalies:
+            st.subheader("⚠️ Detected Anomalies")
+            if anomalies:
+                # Show anomaly count by severity
+                severity_counts = {}
+                for anomaly in anomalies:
+                    severity = anomaly['severity']
+                    severity_counts[severity] = severity_counts.get(severity, 0) + 1
 
-        if all_recent:
-            for msg in all_recent[:5]:
-                if 'status' in msg:  # Producer message
-                    st.success(f"[SENT] {msg['timestamp']} - Partition {msg['partition']}")
-                else:  # Consumer message
-                    st.info(f"[RECV] {msg['timestamp']} - Message processed")
-        else:
-            st.info("No recent activity found")
+                # Display severity metrics
+                metric_cols = st.columns(4)
+                with metric_cols[0]:
+                    st.metric("🔴 Critical", severity_counts.get('critical', 0))
+                with metric_cols[1]:
+                    st.metric("🟠 High", severity_counts.get('high', 0))
+                with metric_cols[2]:
+                    st.metric("🟡 Medium", severity_counts.get('medium', 0))
+                with metric_cols[3]:
+                    st.metric("🔵 Low", severity_counts.get('low', 0))
+
+                st.markdown("**Recent Anomalies:**")
+
+                # Display recent anomalies (last 10)
+                for i, anomaly in enumerate(anomalies[:10]):
+                    severity_emoji = {
+                        'critical': '🔴',
+                        'high': '🟠',
+                        'medium': '🟡',
+                        'low': '🔵'
+                    }
+
+                    emoji = severity_emoji.get(anomaly['severity'], '⚪')
+
+                    with st.expander(f"{emoji} {anomaly['type'].replace('_', ' ').title()} - {anomaly['timestamp']}"):
+                        st.text(f"Source: {anomaly['source']}")
+                        st.text(f"Severity: {anomaly['severity'].upper()}")
+                        st.text(f"Line: {anomaly.get('line', 'N/A')}")
+                        st.code(anomaly['message'], language='text')
+            else:
+                st.success("✅ No anomalies detected")
+
+        with col_recent:
+            st.subheader("📋 Recent Activity")
+            # Combine all activities
+            all_activities = []
+
+            # Add producer activities
+            for msg in producer_msgs[-5:]:
+                all_activities.append({
+                    'timestamp': msg['timestamp'],
+                    'type': '📤 Message Sent',
+                    'details': f"Partition {msg['partition']}, Offset {msg['offset']}"
+                })
+
+            # Add consumer activities
+            for msg in received_msgs[-5:]:
+                all_activities.append({
+                    'timestamp': msg['timestamp'],
+                    'type': '📥 Message Received',
+                    'details': f"Consumer activity"
+                })
+
+            # Sort by timestamp
+            all_activities.sort(key=lambda x: x['timestamp'], reverse=True)
+
+            if all_activities:
+                for activity in all_activities[:10]:
+                    st.text(f"{activity['type']}")
+                    st.caption(f"⏰ {activity['timestamp']} - {activity['details']}")
+                    st.markdown("---")
+            else:
+                st.info("No recent activity found")
+
+# ...existing code...
+
 
 def main():
     """Main Streamlit app function"""
