@@ -5,8 +5,16 @@ from typing import List, Dict, Optional
 class LogService:
     """Classe para analisar logs de producer, consumer e status dos brokers Kafka."""
 
-    def __init__(self, logs_dir: str = "INF1304-T1/logs"):
+    def __init__(self, logs_dir: str = None):
         """Função para inicializar o serviço de logs com o diretório dos logs."""
+        if logs_dir is None:
+            # Auto-detect the correct logs directory based on environment
+            if os.path.exists('/app/logs'):
+                # Running inside Docker container
+                logs_dir = '/app/logs'
+            else:
+                # Running in development environment
+                logs_dir = '/workspaces/INF1304-T1/logs'
         self.logs_dir = logs_dir
 
     def _read_log_file(self, filename: str) -> Optional[str]:
@@ -35,16 +43,22 @@ class LogService:
         # montando as mensagens de log do producer
         for line in content.split('\n'):
             if "Mensagem enviada para" in line:
+                # Extract partition and offset from the line format:
+                # "Mensagem enviada para dados-sensores [partição 0, offset 18636] no broker líder brokerId=3"
                 match = re.search(
-                    r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*dados-sensores.*partição (\d+).*offset (\d+)',
+                    r'Mensagem enviada para dados-sensores \[partição (\d+), offset (\d+)\]',
                     line
                 )
                 if match:
+                    # Since there's no timestamp in the producer log, use current format
+                    import datetime
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     messages.append({
-                        'timestamp': match.group(1),
-                        'partition': int(match.group(2)),
-                        'offset': int(match.group(3)),
-                        'type': 'sent'
+                        'timestamp': timestamp,
+                        'partition': int(match.group(1)),
+                        'offset': int(match.group(2)),
+                        'type': 'sent',
+                        'status': 'success'
                     })
         return messages
 
@@ -58,13 +72,52 @@ class LogService:
 
         # montando as mensagens de log do consumer
         for line in content.split('\n'):
-            if "Received sensor data" in line or "Consumer started" in line:
-                timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
+            # Look for actual sensor data processing messages
+            if "Received sensor data: SensorData" in line:
+                # Extract timestamp from log format: "16:09:49.973 [main] INFO ..."
+                timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
                 if timestamp_match:
+                    # Convert to full timestamp format for consistency
+                    import datetime
+                    today = datetime.datetime.now().strftime('%Y-%m-%d')
+                    time_part = timestamp_match.group(1)[:8]  # Remove milliseconds
+                    full_timestamp = f"{today} {time_part}"
+
+                    # Extract machine ID from the sensor data
+                    machine_match = re.search(r"idMaquina='([^']+)'", line)
+                    machine_id = machine_match.group(1) if machine_match else "Unknown"
+
+                    # Extract sector from the sensor data
+                    sector_match = re.search(r"setor='([^']+)'", line)
+                    sector = sector_match.group(1) if sector_match else "Unknown"
+
                     messages.append({
-                        'timestamp': timestamp_match.group(1),
+                        'timestamp': full_timestamp,
                         'message': line.strip(),
-                        'type': 'received' if 'Received' in line else 'info'
+                        'type': 'received',
+                        'machine_id': machine_id,
+                        'sector': sector
+                    })
+
+            # Also look for configuration messages as secondary info
+            elif ("bootstrap.servers" in line or
+                  "ConsumerConfig" in line or
+                  "group.id" in line or
+                  "auto.offset.reset" in line):
+
+                # Extract timestamp from log format: "16:09:19.609 [main] INFO ..."
+                timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
+                if timestamp_match:
+                    # Convert to full timestamp format for consistency
+                    import datetime
+                    today = datetime.datetime.now().strftime('%Y-%m-%d')
+                    time_part = timestamp_match.group(1)[:8]  # Remove milliseconds
+                    full_timestamp = f"{today} {time_part}"
+
+                    messages.append({
+                        'timestamp': full_timestamp,
+                        'message': line.strip(),
+                        'type': 'config'
                     })
 
         return messages
@@ -76,22 +129,73 @@ class LogService:
 
         # percorre os logs de cada broker e guarda seu status
         for broker in brokers:
-            content = self._read_log_file(f"{broker}.log")
+            log_file = f"{broker}.log"
+            content = self._read_log_file(log_file)
+
             if not content:
                 status[broker] = "NO_LOGS"
                 continue
 
-            if "started (kafka.server.KafkaServer)" in content:
-                status[broker] = "RUNNING"
+            # Check for different status indicators in Kafka logs
+            lines = content.split('\n')
+            broker_status = "UNKNOWN"
 
-            elif "ERROR" in content:
-                status[broker] = "ERROR"
+            # Look for recent activity (last 50 lines to check current status)
+            recent_lines = lines[-50:] if len(lines) > 50 else lines
 
-            elif "Starting" in content:
-                status[broker] = "STARTING"
+            # Check for startup completion
+            started_found = False
+            error_found = False
 
+            for line in recent_lines:
+                if not line.strip():
+                    continue
+
+                # Check for successful startup indicators (including new KRaft mode)
+                if any(indicator in line for indicator in [
+                    "started (kafka.server.KafkaServer)",
+                    "Kafka Server started",
+                    "KafkaServer started",
+                    "[KafkaServer id=",
+                    "[KafkaRaftServer nodeId=",
+                    "Transition from STARTING to STARTED",
+                    "BrokerServer id=",
+                    "Endpoint is now READY"
+                ]):
+                    started_found = True
+
+                # Check for critical error indicators (ignore transient startup errors)
+                if any(error in line.upper() for error in ["FATAL"]):
+                    # Only mark as error for FATAL errors, not temporary startup ERRORs
+                    if "FATAL" in line.upper():
+                        error_found = True
+
+            # Check entire log for startup messages if not found in recent lines
+            if not started_found:
+                for line in lines:
+                    if any(indicator in line for indicator in [
+                        "started (kafka.server.KafkaServer)",
+                        "Kafka Server started",
+                        "KafkaServer started",
+                        "[KafkaRaftServer nodeId=",
+                        "Transition from STARTING to STARTED"
+                    ]):
+                        started_found = True
+                        break
+
+            # Determine status based on findings
+            if error_found:
+                broker_status = "ERROR"
+            elif started_found:
+                broker_status = "RUNNING"
             else:
-                status[broker] = "UNKNOWN"
+                # Check if there's any recent activity
+                if len(recent_lines) > 0:
+                    broker_status = "STARTING"
+                else:
+                    broker_status = "NO_ACTIVITY"
+
+            status[broker] = broker_status
 
         return status
 
@@ -122,3 +226,219 @@ class LogService:
         all_msgs.sort(key=lambda x: x['timestamp'], reverse=True)
 
         return all_msgs[:limit]
+
+    # ...existing code...
+
+    def get_anomaly_messages(self) -> List[Dict]:
+        """Detecta anomalias nos logs do consumer e outros componentes"""
+        anomalies = []
+
+        # Check consumer logs for anomalies
+        consumer_content = self._read_log_file("consumer.log")
+        if consumer_content:
+            for line_num, line in enumerate(consumer_content.split('\n'), 1):
+                if not line.strip():
+                    continue
+
+                # Extract timestamp from consumer log format: "20:12:26.222 [main] INFO ..."
+                timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
+                timestamp = timestamp_match.group(1)[:8] if timestamp_match else "Unknown"
+
+                # Convert to full timestamp
+                if timestamp != "Unknown":
+                    import datetime
+                    today = datetime.datetime.now().strftime('%Y-%m-%d')
+                    full_timestamp = f"{today} {timestamp}"
+                else:
+                    full_timestamp = "Unknown"
+
+                # Detect different types of anomalies in consumer logs
+                anomaly_detected = False
+                anomaly_type = ""
+                severity = "low"
+
+                # Error level anomalies
+                if any(error in line.upper() for error in ['ERROR', 'EXCEPTION', 'FATAL']):
+                    anomaly_detected = True
+                    anomaly_type = "consumer_error"
+                    severity = "high"
+
+                # Warning level anomalies - look for specific sensor anomalies
+                elif "WARN" in line.upper():
+                    anomaly_detected = True
+                    anomaly_type = "sensor_anomaly"
+                    severity = "medium"
+
+                    # Determine specific anomaly type based on content
+                    if "High temperature detected" in line:
+                        anomaly_type = "high_temperature"
+                        severity = "high"
+                    elif "Low temperature detected" in line:
+                        anomaly_type = "low_temperature"
+                        severity = "medium"
+                    elif "High vibration detected" in line:
+                        anomaly_type = "high_vibration"
+                        severity = "high"
+                    elif "Low vibration detected" in line:
+                        anomaly_type = "low_vibration"
+                        severity = "low"
+                    elif "High energy consumption detected" in line:
+                        anomaly_type = "high_energy"
+                        severity = "high"
+                    elif "High pressure detected" in line:
+                        anomaly_type = "high_pressure"
+                        severity = "medium"
+                    elif "Low pressure detected" in line:
+                        anomaly_type = "low_pressure"
+                        severity = "medium"
+                    else:
+                        anomaly_type = "sensor_warning"
+
+                # Connection issues
+                elif any(conn in line.lower() for conn in ['connection refused', 'timeout', 'failed to connect', 'network error']):
+                    anomaly_detected = True
+                    anomaly_type = "connection_issue"
+                    severity = "high"
+
+                # Consumer group issues
+                elif any(group in line.lower() for group in ['rebalance', 'partition assignment', 'consumer group']):
+                    if any(issue in line.lower() for issue in ['failed', 'error', 'timeout']):
+                        anomaly_detected = True
+                        anomaly_type = "consumer_group_issue"
+                        severity = "medium"
+
+                # Offset issues
+                elif any(offset in line.lower() for offset in ['offset', 'commit']) and any(issue in line.lower() for issue in ['failed', 'error', 'invalid']):
+                    anomaly_detected = True
+                    anomaly_type = "offset_issue"
+                    severity = "medium"
+
+                # Deserialization errors
+                elif any(deser in line.lower() for deser in ['deserialization', 'deserializer', 'parse']) and "error" in line.lower():
+                    anomaly_detected = True
+                    anomaly_type = "deserialization_error"
+                    severity = "high"
+
+                if anomaly_detected:
+                    # Extract machine and sector information if available
+                    machine_id = "Unknown"
+                    sector = "Unknown"
+
+                    # Look for machine and sector in the message
+                    machine_match = re.search(r'Machine:\s*([^,]+)', line)
+                    if machine_match:
+                        machine_id = machine_match.group(1).strip()
+
+                    sector_match = re.search(r'Sector:\s*([^,]+)', line)
+                    if sector_match:
+                        sector = sector_match.group(1).strip()
+
+                    # Extract the specific value and unit for sensor anomalies
+                    sensor_value = None
+                    if "Temperature:" in line:
+                        temp_match = re.search(r'Temperature:\s*([\d.]+)', line)
+                        if temp_match:
+                            sensor_value = f"{temp_match.group(1)}°C"
+                    elif "Vibration:" in line:
+                        vib_match = re.search(r'Vibration:\s*([\d.]+)', line)
+                        if vib_match:
+                            sensor_value = f"{vib_match.group(1)} mm/s"
+                    elif "Energy Consumption:" in line:
+                        energy_match = re.search(r'Energy Consumption:\s*([\d.]+)', line)
+                        if energy_match:
+                            sensor_value = f"{energy_match.group(1)} kW"
+                    elif "Pressure:" in line:
+                        pressure_match = re.search(r'Pressure:\s*([\d.]+)', line)
+                        if pressure_match:
+                            sensor_value = f"{pressure_match.group(1)} bar"
+
+                    anomalies.append({
+                        'timestamp': full_timestamp,
+                        'type': anomaly_type,
+                        'severity': severity,
+                        'message': line.strip(),
+                        'source': 'consumer.log',
+                        'line': line_num,
+                        'component': 'consumer',
+                        'machine_id': machine_id,
+                        'sector': sector,
+                        'sensor_value': sensor_value
+                    })
+
+        # Also check producer logs for completeness
+        producer_content = self._read_log_file("producer.log")
+        if producer_content:
+            for line_num, line in enumerate(producer_content.split('\n'), 1):
+                if not line.strip():
+                    continue
+
+                # Look for errors in producer logs
+                if any(error in line.lower() for error in ['error', 'exception', 'failed', 'timeout']):
+                    # Extract timestamp if available, otherwise use current time
+                    import datetime
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                    severity = 'high' if any(critical in line.lower() for critical in ['error', 'exception', 'failed']) else 'medium'
+
+                    anomalies.append({
+                        'timestamp': timestamp,
+                        'type': 'producer_error',
+                        'severity': severity,
+                        'message': line.strip(),
+                        'source': 'producer.log',
+                        'line': line_num,
+                        'component': 'producer'
+                    })
+
+        # Check Kafka broker logs for anomalies
+        for broker_file in ['kafka1.log', 'kafka2.log', 'kafka3.log']:
+            broker_content = self._read_log_file(broker_file)
+            if broker_content:
+                for line_num, line in enumerate(broker_content.split('\n'), 1):
+                    if not line.strip():
+                        continue
+
+                    # Extract timestamp from Kafka log format: [2024-09-29 20:12:26,222]
+                    timestamp_match = re.search(r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d{3}\]', line)
+                    timestamp = timestamp_match.group(1) if timestamp_match else "Unknown"
+
+                    # Detect Kafka broker anomalies
+                    if any(error in line.upper() for error in ['ERROR', 'FATAL', 'EXCEPTION']):
+                        severity = 'critical' if 'FATAL' in line.upper() else 'high'
+
+                        # Truncate long messages
+                        message = line.strip()
+                        if len(message) > 150:
+                            message = message[:150] + "..."
+
+                        anomalies.append({
+                            'timestamp': timestamp,
+                            'type': 'broker_error',
+                            'severity': severity,
+                            'message': message,
+                            'source': broker_file,
+                            'line': line_num,
+                            'component': 'kafka_broker'
+                        })
+
+                    # Warn level issues
+                    elif 'WARN' in line.upper():
+                        message = line.strip()
+                        if len(message) > 150:
+                            message = message[:150] + "..."
+
+                        anomalies.append({
+                            'timestamp': timestamp,
+                            'type': 'broker_warning',
+                            'severity': 'medium',
+                            'message': message,
+                            'source': broker_file,
+                            'line': line_num,
+                            'component': 'kafka_broker'
+                        })
+
+        # Sort anomalies by timestamp (newest first) and limit to recent ones
+        anomalies.sort(key=lambda x: x['timestamp'] if x['timestamp'] != "Unknown" else "0000-00-00 00:00:00", reverse=True)
+
+        return anomalies[:100]  # Return last 100 anomalies
+

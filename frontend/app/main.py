@@ -1,89 +1,202 @@
 import os
 import time
-from colorama import init, Fore
-from services.log_service import LogService
 import streamlit as st
+from services.log_service import LogService
+
+# Configure Streamlit page
+st.set_page_config(
+    page_title="Kafka Monitoring Dashboard",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+class LogAnalyzer:
+    def __init__(self, logs_dir=None):
+        if logs_dir is None:
+            # Auto-detect the correct logs directory based on environment
+            if os.path.exists('/app/logs'):
+                # Running inside Docker container
+                logs_dir = '/app/logs'
+            else:
+                # Running in development environment
+                logs_dir = '/workspaces/INF1304-T1/logs'
+        self.log_service = LogService(logs_dir)
+
+    def read_producer_logs(self):
+        """Lê e analisa logs do producer"""
+        return self.log_service.get_producer_messages()
+
+    def read_consumer_logs(self):
+        """Lê e analisa logs do consumer"""
+        return self.log_service.get_consumer_messages()
+
+    def get_kafka_status(self):
+        """Verifica status dos brokers Kafka"""
+        return self.log_service.get_kafka_broker_status()
+
+    def get_anomaly_messages(self):
+        """Retorna mensagens de anomalia detectadas"""
+        return self.log_service.get_anomaly_messages()
+
+    # ...existing code...
+
+    def display_streamlit_dashboard(self):
+        """Exibe um dashboard Streamlit com informações dos logs"""
+
+        # Main title
+        st.title("📊 Kafka Monitoring Dashboard")
+        st.markdown("---")
+
+        # Get data
+        kafka_status = self.get_kafka_status()
+        producer_msgs = self.read_producer_logs()
+        consumer_msgs = self.read_consumer_logs()
+        received_msgs = [m for m in consumer_msgs if m['type'] == 'received']
+        anomalies = self.get_anomaly_messages()
+
+        # Create columns for layout
+        col1, col2, col3 = st.columns(3)
+
+        # Kafka Brokers Status
+        with col1:
+            st.subheader("🔧 Kafka Brokers Status")
+            for broker, status in kafka_status.items():
+                if status == "RUNNING":
+                    st.success(f"● {broker}: {status}")
+                elif status == "ERROR":
+                    st.error(f"● {broker}: {status}")
+                else:
+                    st.warning(f"● {broker}: {status}")
+
+        # Producer Stats
+        with col2:
+            st.subheader("📤 Producer Stats")
+            st.metric("Total Messages Sent", len(producer_msgs))
+            if producer_msgs:
+                latest = producer_msgs[-1]
+                st.text(f"Last message: {latest['timestamp']}")
+                st.text(f"Partition: {latest['partition']}")
+
+        # Consumer Stats
+        with col3:
+            st.subheader("📥 Consumer Stats")
+            st.metric("Total Messages Received", len(received_msgs))
+            if received_msgs:
+                latest = received_msgs[-1]
+                st.text(f"Last message: {latest['timestamp']}")
+
+        # Anomalies Section - Full width
+        st.markdown("---")
+        col_anomalies, col_recent = st.columns(2)
+
+        with col_anomalies:
+            st.subheader("⚠️ Detected Anomalies")
+            if anomalies:
+                # Show anomaly count by severity
+                severity_counts = {}
+                for anomaly in anomalies:
+                    severity = anomaly['severity']
+                    severity_counts[severity] = severity_counts.get(severity, 0) + 1
+
+                # Display severity metrics
+                metric_cols = st.columns(4)
+                with metric_cols[0]:
+                    st.metric("🔴 Critical", severity_counts.get('critical', 0))
+                with metric_cols[1]:
+                    st.metric("🟠 High", severity_counts.get('high', 0))
+                with metric_cols[2]:
+                    st.metric("🟡 Medium", severity_counts.get('medium', 0))
+                with metric_cols[3]:
+                    st.metric("🔵 Low", severity_counts.get('low', 0))
+
+                st.markdown("**Recent Anomalies:**")
+
+                # Display recent anomalies (last 10)
+                for i, anomaly in enumerate(anomalies[:10]):
+                    severity_emoji = {
+                        'critical': '🔴',
+                        'high': '🟠',
+                        'medium': '🟡',
+                        'low': '🔵'
+                    }
+
+                    emoji = severity_emoji.get(anomaly['severity'], '⚪')
+
+                    with st.expander(f"{emoji} {anomaly['type'].replace('_', ' ').title()} - {anomaly['timestamp']}"):
+                        if anomaly.get('machine_id') and anomaly['machine_id'] != 'Unknown':
+                            st.text(f"🏭 Machine: {anomaly['machine_id']}")
+                        if anomaly.get('sector') and anomaly['sector'] != 'Unknown':
+                            st.text(f"📍 Sector: {anomaly['sector']}")
+                        if anomaly.get('sensor_value'):
+                            st.text(f"📊 Value: {anomaly['sensor_value']}")
+                        st.text(f"⚠️ Severity: {anomaly['severity'].upper()}")
+                        st.code(anomaly['message'], language='text')
+            else:
+                st.success("✅ No anomalies detected")
+
+        with col_recent:
+            st.subheader("📋 Recent Activity")
+            # Combine all activities
+            all_activities = []
+
+            # Add producer activities
+            for msg in producer_msgs[-5:]:
+                all_activities.append({
+                    'timestamp': msg['timestamp'],
+                    'type': '📤 Message Sent',
+                    'details': f"Partition {msg['partition']}, Offset {msg['offset']}"
+                })
+
+            # Add consumer activities
+            for msg in received_msgs[-5:]:
+                all_activities.append({
+                    'timestamp': msg['timestamp'],
+                    'type': '📥 Message Received',
+                    'details': "Consumer activity"
+                })
+
+            # Sort by timestamp
+            all_activities.sort(key=lambda x: x['timestamp'], reverse=True)
+
+            if all_activities:
+                for activity in all_activities[:10]:
+                    st.text(f"{activity['type']}")
+                    st.caption(f"⏰ {activity['timestamp']} - {activity['details']}")
+                    st.markdown("---")
+            else:
+                st.info("No recent activity found")
+
+# ...existing code...
 
 
-#init(autoreset=True)
-st.title("a")
-st.write("b")
+def main():
+    """Main Streamlit app function"""
+    # Auto-refresh every 5 seconds
+    if 'auto_refresh' not in st.session_state:
+        st.session_state.auto_refresh = True
 
-# class LogAnalyzer:
-#     def __init__(self, logs_dir="INF1304-T1/logs"):
-#         self.log_service = LogService(logs_dir)
+    # Sidebar controls
+    st.sidebar.title("Dashboard Controls")
+    auto_refresh = st.sidebar.checkbox("Auto-refresh (5s)", value=st.session_state.auto_refresh)
+    st.session_state.auto_refresh = auto_refresh
 
-#     def read_producer_logs(self):
-#         """Lê e analisa logs do producer"""
-#         return self.log_service.get_producer_messages()
+    if st.sidebar.button("Refresh Now"):
+        st.rerun()
 
-#     def read_consumer_logs(self):
-#         """Lê e analisa logs do consumer"""
-#         return self.log_service.get_consumer_messages()
+    # Create analyzer and display dashboard
+    try:
+        analyzer = LogAnalyzer()
+        analyzer.display_streamlit_dashboard()
 
-#     def get_kafka_status(self):
-#         """Verifica status dos brokers Kafka"""
-#         return self.log_service.get_kafka_broker_status()
+        # Auto-refresh functionality
+        if auto_refresh:
+            time.sleep(5)
+            st.rerun()
 
-#     def display_dashboard(self):
-#         """Exibe um dashboard com informações dos logs"""
-#         os.system('clear' if os.name == 'posix' else 'cls')
+    except Exception as e:
+        st.error(f"Error loading dashboard: {str(e)}")
+        st.info("Make sure the log service and files are available.")
 
-#         print(Fore.CYAN + "=" * 60)
-#         print(Fore.CYAN + "    KAFKA MONITORING DASHBOARD")
-#         print(Fore.CYAN + "=" * 60)
-#         print()
-
-#         # Status dos Kafka brokers
-#         print(Fore.YELLOW + "📊 KAFKA BROKERS STATUS:")
-#         kafka_status = self.get_kafka_status()
-#         for broker, status in kafka_status.items():
-#             color = Fore.GREEN if status == "RUNNING" else Fore.RED if status == "ERROR" else Fore.YELLOW
-#             print(f"  {color}● {broker}: {status}")
-#         print()
-
-#         # Producer stats
-#         producer_msgs = self.read_producer_logs()
-#         print(Fore.YELLOW + f"📤 PRODUCER STATS:")
-#         print(f"  Total messages sent: {Fore.GREEN}{len(producer_msgs)}")
-#         if producer_msgs:
-#             latest = producer_msgs[-1]
-#             print(f"  Last message: {latest['timestamp']} (partition {latest['partition']})")
-#         print()
-
-#         # Consumer stats
-#         consumer_msgs = self.read_consumer_logs()
-#         received_msgs = [m for m in consumer_msgs if m['type'] == 'received']
-#         print(Fore.YELLOW + f"📥 CONSUMER STATS:")
-#         print(f"  Total messages received: {Fore.GREEN}{len(received_msgs)}")
-#         if received_msgs:
-#             latest = received_msgs[-1]
-#             print(f"  Last message: {latest['timestamp']}")
-#         print()
-
-#         # Recent activity
-#         print(Fore.YELLOW + "📋 RECENT ACTIVITY (last 5 messages):")
-#         all_recent = (producer_msgs[-3:] + received_msgs[-3:])
-#         all_recent.sort(key=lambda x: x['timestamp'], reverse=True)
-
-#         for msg in all_recent[:5]:
-#             if 'status' in msg:  # Producer message
-#                 print(f"  {Fore.GREEN}[SENT] {msg['timestamp']} - Partition {msg['partition']}")
-#             else:  # Consumer message
-#                 print(f"  {Fore.CYAN}[RECV] {msg['timestamp']} - Message processed")
-
-#         print()
-#         print(Fore.MAGENTA + "Press Ctrl+C to exit...")
-
-# def main():
-#     analyzer = LogAnalyzer()
-
-#     try:
-#         while True:
-#             analyzer.display_dashboard()
-#             time.sleep(5)  # Refresh every 5 seconds
-#     except KeyboardInterrupt:
-#         print(Fore.YELLOW + "\n\nDashboard fechado. Até logo!")
-
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()

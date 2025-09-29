@@ -38,12 +38,14 @@ build:
 # Sobe os containers e captura logs do consumidor, produtor e kafkas em seus respectivos arquivos
 up:
 	make clean
+	make build
 	@echo "Subindo os containers..."
 	docker-compose up -d
 	@echo "Aguardando containers iniciarem..."
 	@sleep 10
 	@echo "Iniciando captura de logs..."
-	@mkdir -p logs
+	@sudo mkdir -p logs
+	@sudo chown -R $$USER:$$USER logs
 	@nohup docker logs -f sensor > logs/producer.log 2>&1 &
 	@nohup docker logs -f consumer > logs/consumer.log 2>&1 &
 	@nohup docker logs -f kafka1 > logs/kafka1.log 2>&1 &
@@ -91,6 +93,7 @@ clean:
 	@echo "Removendo volumes Docker..."
 	docker volume prune -f
 	@echo "Limpando logs..."
-	rm -rf logs/*.log || true
+	sudo rm -rf logs/*.log || true
+	sudo rm -rf logs/ || true
 	@echo "Limpeza completa finalizada!"
 	docker ps -a
