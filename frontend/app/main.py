@@ -1,3 +1,4 @@
+import os
 import time
 import streamlit as st
 from services.log_service import LogService
@@ -11,7 +12,15 @@ st.set_page_config(
 )
 
 class LogAnalyzer:
-    def __init__(self, logs_dir="/workspaces/INF1304-T1/logs"):
+    def __init__(self, logs_dir=None):
+        if logs_dir is None:
+            # Auto-detect the correct logs directory based on environment
+            if os.path.exists('/app/logs'):
+                # Running inside Docker container
+                logs_dir = '/app/logs'
+            else:
+                # Running in development environment
+                logs_dir = '/workspaces/INF1304-T1/logs'
         self.log_service = LogService(logs_dir)
 
     def read_producer_logs(self):
@@ -140,7 +149,7 @@ class LogAnalyzer:
                 all_activities.append({
                     'timestamp': msg['timestamp'],
                     'type': '📥 Message Received',
-                    'details': f"Consumer activity"
+                    'details': "Consumer activity"
                 })
 
             # Sort by timestamp

@@ -5,8 +5,16 @@ from typing import List, Dict, Optional
 class LogService:
     """Classe para analisar logs de producer, consumer e status dos brokers Kafka."""
 
-    def __init__(self, logs_dir: str = "/workspaces/INF1304-T1/logs"):
+    def __init__(self, logs_dir: str = None):
         """Função para inicializar o serviço de logs com o diretório dos logs."""
+        if logs_dir is None:
+            # Auto-detect the correct logs directory based on environment
+            if os.path.exists('/app/logs'):
+                # Running inside Docker container
+                logs_dir = '/app/logs'
+            else:
+                # Running in development environment
+                logs_dir = '/workspaces/INF1304-T1/logs'
         self.logs_dir = logs_dir
 
     def _read_log_file(self, filename: str) -> Optional[str]:
@@ -64,13 +72,40 @@ class LogService:
 
         # montando as mensagens de log do consumer
         for line in content.split('\n'):
-            # Look for consumer activity - config lines, connection messages, etc.
-            if ("bootstrap.servers" in line or
-                "ConsumerConfig" in line or
-                "group.id" in line or
-                "auto.offset.reset" in line):
+            # Look for actual sensor data processing messages
+            if "Received sensor data: SensorData" in line:
+                # Extract timestamp from log format: "16:09:49.973 [main] INFO ..."
+                timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
+                if timestamp_match:
+                    # Convert to full timestamp format for consistency
+                    import datetime
+                    today = datetime.datetime.now().strftime('%Y-%m-%d')
+                    time_part = timestamp_match.group(1)[:8]  # Remove milliseconds
+                    full_timestamp = f"{today} {time_part}"
 
-                # Extract timestamp from log format: "20:12:26.222 [main] INFO ..."
+                    # Extract machine ID from the sensor data
+                    machine_match = re.search(r"idMaquina='([^']+)'", line)
+                    machine_id = machine_match.group(1) if machine_match else "Unknown"
+
+                    # Extract sector from the sensor data
+                    sector_match = re.search(r"setor='([^']+)'", line)
+                    sector = sector_match.group(1) if sector_match else "Unknown"
+
+                    messages.append({
+                        'timestamp': full_timestamp,
+                        'message': line.strip(),
+                        'type': 'received',
+                        'machine_id': machine_id,
+                        'sector': sector
+                    })
+
+            # Also look for configuration messages as secondary info
+            elif ("bootstrap.servers" in line or
+                  "ConsumerConfig" in line or
+                  "group.id" in line or
+                  "auto.offset.reset" in line):
+
+                # Extract timestamp from log format: "16:09:19.609 [main] INFO ..."
                 timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
                 if timestamp_match:
                     # Convert to full timestamp format for consistency
@@ -82,7 +117,7 @@ class LogService:
                     messages.append({
                         'timestamp': full_timestamp,
                         'message': line.strip(),
-                        'type': 'received' if 'bootstrap.servers' in line else 'info'
+                        'type': 'config'
                     })
 
         return messages
