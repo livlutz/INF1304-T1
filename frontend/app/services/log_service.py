@@ -263,11 +263,36 @@ class LogService:
                     anomaly_type = "consumer_error"
                     severity = "high"
 
-                # Warning level anomalies
+                # Warning level anomalies - look for specific sensor anomalies
                 elif "WARN" in line.upper():
                     anomaly_detected = True
-                    anomaly_type = "consumer_warning"
+                    anomaly_type = "sensor_anomaly"
                     severity = "medium"
+
+                    # Determine specific anomaly type based on content
+                    if "High temperature detected" in line:
+                        anomaly_type = "high_temperature"
+                        severity = "high"
+                    elif "Low temperature detected" in line:
+                        anomaly_type = "low_temperature"
+                        severity = "medium"
+                    elif "High vibration detected" in line:
+                        anomaly_type = "high_vibration"
+                        severity = "high"
+                    elif "Low vibration detected" in line:
+                        anomaly_type = "low_vibration"
+                        severity = "low"
+                    elif "High energy consumption detected" in line:
+                        anomaly_type = "high_energy"
+                        severity = "high"
+                    elif "High pressure detected" in line:
+                        anomaly_type = "high_pressure"
+                        severity = "medium"
+                    elif "Low pressure detected" in line:
+                        anomaly_type = "low_pressure"
+                        severity = "medium"
+                    else:
+                        anomaly_type = "sensor_warning"
 
                 # Connection issues
                 elif any(conn in line.lower() for conn in ['connection refused', 'timeout', 'failed to connect', 'network error']):
@@ -295,6 +320,38 @@ class LogService:
                     severity = "high"
 
                 if anomaly_detected:
+                    # Extract machine and sector information if available
+                    machine_id = "Unknown"
+                    sector = "Unknown"
+
+                    # Look for machine and sector in the message
+                    machine_match = re.search(r'Machine:\s*([^,]+)', line)
+                    if machine_match:
+                        machine_id = machine_match.group(1).strip()
+
+                    sector_match = re.search(r'Sector:\s*([^,]+)', line)
+                    if sector_match:
+                        sector = sector_match.group(1).strip()
+
+                    # Extract the specific value and unit for sensor anomalies
+                    sensor_value = None
+                    if "Temperature:" in line:
+                        temp_match = re.search(r'Temperature:\s*([\d.]+)', line)
+                        if temp_match:
+                            sensor_value = f"{temp_match.group(1)}°C"
+                    elif "Vibration:" in line:
+                        vib_match = re.search(r'Vibration:\s*([\d.]+)', line)
+                        if vib_match:
+                            sensor_value = f"{vib_match.group(1)} mm/s"
+                    elif "Energy Consumption:" in line:
+                        energy_match = re.search(r'Energy Consumption:\s*([\d.]+)', line)
+                        if energy_match:
+                            sensor_value = f"{energy_match.group(1)} kW"
+                    elif "Pressure:" in line:
+                        pressure_match = re.search(r'Pressure:\s*([\d.]+)', line)
+                        if pressure_match:
+                            sensor_value = f"{pressure_match.group(1)} bar"
+
                     anomalies.append({
                         'timestamp': full_timestamp,
                         'type': anomaly_type,
@@ -302,7 +359,10 @@ class LogService:
                         'message': line.strip(),
                         'source': 'consumer.log',
                         'line': line_num,
-                        'component': 'consumer'
+                        'component': 'consumer',
+                        'machine_id': machine_id,
+                        'sector': sector,
+                        'sensor_value': sensor_value
                     })
 
         # Also check producer logs for completeness

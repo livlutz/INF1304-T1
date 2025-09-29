@@ -124,9 +124,13 @@ class LogAnalyzer:
                     emoji = severity_emoji.get(anomaly['severity'], '⚪')
 
                     with st.expander(f"{emoji} {anomaly['type'].replace('_', ' ').title()} - {anomaly['timestamp']}"):
-                        st.text(f"Source: {anomaly['source']}")
-                        st.text(f"Severity: {anomaly['severity'].upper()}")
-                        st.text(f"Line: {anomaly.get('line', 'N/A')}")
+                        if anomaly.get('machine_id') and anomaly['machine_id'] != 'Unknown':
+                            st.text(f"🏭 Machine: {anomaly['machine_id']}")
+                        if anomaly.get('sector') and anomaly['sector'] != 'Unknown':
+                            st.text(f"📍 Sector: {anomaly['sector']}")
+                        if anomaly.get('sensor_value'):
+                            st.text(f"📊 Value: {anomaly['sensor_value']}")
+                        st.text(f"⚠️ Severity: {anomaly['severity'].upper()}")
                         st.code(anomaly['message'], language='text')
             else:
                 st.success("✅ No anomalies detected")
