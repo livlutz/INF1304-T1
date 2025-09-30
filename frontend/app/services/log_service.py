@@ -123,77 +123,53 @@ class LogService:
         return messages
 
     def get_kafka_broker_status(self) -> Dict[str, str]:
-        """Obtém o status de cada broker Kafka"""
+        """Obtém o status de cada broker Kafka a partir da última mensagem de log relevante."""
         brokers = ['kafka1', 'kafka2', 'kafka3']
         status = {}
 
-        # percorre os logs de cada broker e guarda seu status
         for broker in brokers:
             log_file = f"{broker}.log"
             content = self._read_log_file(log_file)
 
-            if not content:
-                status[broker] = "NO_LOGS"
+            # If the log file does not exist, it means the broker has been stopped
+            if content is None:
+                status[broker] = "LOG_CLEARED"  # New status for cleared logs
                 continue
 
-            # Check for different status indicators in Kafka logs
-            lines = content.split('\n')
+            lines = content.strip().split('\n')
             broker_status = "UNKNOWN"
 
-            # Look for recent activity (last 50 lines to check current status)
-            recent_lines = lines[-50:] if len(lines) > 50 else lines
+            # Palavras-chave para busca
+            startup_indicators = [
+                "started (kafka.server.KafkaServer)", "Kafka Server started",
+                "KafkaServer started", "[KafkaServer id=", "[KafkaRaftServer nodeId=",
+                "Transition from STARTING to STARTED", "BrokerServer id=", "Endpoint is now READY"
+            ]
+            shutdown_indicators = ["shutting down", "Shutdown completed", "Killing broker container"]
+            error_indicators = ["FATAL", "CONTAINER_REMOVED"]
 
-            # Check for startup completion
-            started_found = False
-            error_found = False
-
-            for line in recent_lines:
+            # Itera de trás para frente para encontrar o status mais recente
+            for line in reversed(lines):
                 if not line.strip():
                     continue
 
-                # Check for successful startup indicators (including new KRaft mode)
-                if any(indicator in line for indicator in [
-                    "started (kafka.server.KafkaServer)",
-                    "Kafka Server started",
-                    "KafkaServer started",
-                    "[KafkaServer id=",
-                    "[KafkaRaftServer nodeId=",
-                    "Transition from STARTING to STARTED",
-                    "BrokerServer id=",
-                    "Endpoint is now READY"
-                ]):
-                    started_found = True
+                # Verifica por erros fatais
+                if any(indicator in line.upper() for indicator in error_indicators):
+                    broker_status = "KILLED"
+                    break  # Encontrou o status mais recente
 
-                # Check for critical error indicators (ignore transient startup errors)
-                if any(error in line.upper() for error in ["FATAL"]):
-                    # Only mark as error for FATAL errors, not temporary startup ERRORs
-                    if "FATAL" in line.upper():
-                        error_found = True
+                # Verifica por mensagens de shutdown
+                if any(indicator in line for indicator in shutdown_indicators):
+                    broker_status = "STOPPED"
+                    break
 
-            # Check entire log for startup messages if not found in recent lines
-            if not started_found:
-                for line in lines:
-                    if any(indicator in line for indicator in [
-                        "started (kafka.server.KafkaServer)",
-                        "Kafka Server started",
-                        "KafkaServer started",
-                        "[KafkaRaftServer nodeId=",
-                        "Transition from STARTING to STARTED"
-                    ]):
-                        started_found = True
-                        break
+                # Verifica por mensagens de startup
+                if any(indicator in line for indicator in startup_indicators):
+                    broker_status = "RUNNING"
+                    break
 
-            # Determine status based on findings
-            if error_found:
-                broker_status = "ERROR"
-            elif started_found:
-                broker_status = "RUNNING"
-            else:
-                # Check if there's any recent activity
-                if len(recent_lines) > 0:
-                    broker_status = "STARTING"
-                else:
-                    broker_status = "NO_ACTIVITY"
+            if broker_status == "UNKNOWN" and lines and any(line.strip() for line in lines):
+                broker_status = "STARTING"
 
             status[broker] = broker_status
 
@@ -258,7 +234,7 @@ class LogService:
                 severity = "low"
 
                 # Error level anomalies
-                if any(error in line.upper() for error in ['ERROR', 'EXCEPTION', 'FATAL']):
+                if any(error in line.upper() for error in ['KILLED', 'EXCEPTION', 'FATAL']):
                     anomaly_detected = True
                     anomaly_type = "consumer_error"
                     severity = "high"
