@@ -7,6 +7,19 @@ O objetivo é garantir **balanceamento de carga**, **tolerância a falhas** e **
 
 ---
 
+![Contributors](https://img.shields.io/github/contributors/livlutz/INF1304-T1)
+![Java](https://img.shields.io/badge/language-Java-red.svg)
+![Python](https://img.shields.io/badge/python-3670A0?style=plastic&logo=python&logoColor=ffdd54)
+![Bash](https://img.shields.io/badge/language-Bash-green.svg)
+![Languages Count](https://img.shields.io/github/languages/count/livlutz/INF1304-T1)
+![GitHub stars](https://img.shields.io/github/stars/livlutz/INF1304-T1?style=social)
+
+## 🤝 Membros da dupla
+
+Lívia Lutz dos Santos - 2211055
+
+Thiago Pereira Camerato - 2212580
+
 ## 📌 Objetivo
 
 - Criar um cluster Kafka com múltiplos brokers.
@@ -19,12 +32,7 @@ O objetivo é garantir **balanceamento de carga**, **tolerância a falhas** e **
 
 ## Critério para determinação de anomalias
 
-temperatura > 50 graus celsius - alta
-temperatura < 10 graus celsius - baixa
-vibracao > 4.0 - alta
-vibracao < 1.0 - baixa
-consumo de energia > 400 - alto
-consumo de energia < 80 - baixo
+TODO: completar
 
 
 

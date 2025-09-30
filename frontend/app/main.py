@@ -64,8 +64,12 @@ class LogAnalyzer:
             for broker, status in kafka_status.items():
                 if status == "RUNNING":
                     st.success(f"● {broker}: {status}")
-                elif status == "ERROR":
+                elif status == "KILLED":
                     st.error(f"● {broker}: {status}")
+                elif status == "STOPPED":
+                    st.warning(f"● {broker}: {status}")
+                elif status == "LOG_CLEARED":
+                    st.info(f"⚪️ {broker}: LOG CLEARED")
                 else:
                     st.warning(f"● {broker}: {status}")
 
