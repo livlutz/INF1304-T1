@@ -18,7 +18,7 @@ O objetivo é garantir **balanceamento de carga**, **tolerância a falhas** e **
 
 Lívia Lutz dos Santos - 2211055
 
-Thiago Pereira Camerato - bota tua matrícula aí kjkjk
+Thiago Pereira Camerato - 2212580
 
 ## 📌 Objetivo
 
