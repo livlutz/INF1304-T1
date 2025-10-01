@@ -1,4 +1,3 @@
-
 #variaveis
 
 PRODUCER_DIR = sensor
@@ -19,14 +18,22 @@ stop:
 	docker stop kafka1 || true
 	docker stop kafka2 || true
 	docker stop kafka3 || true
-	docker stop sensor || true
-	docker stop consumer || true
+	docker stop sensor1 || true
+	docker stop sensor2 || true
+	docker stop sensor3 || true
+	docker stop consumer1 || true
+	docker stop consumer2 || true
+	docker stop consumer3 || true
 	docker stop frontend || true
-	docker rm sensor || true
+	docker rm sensor1 || true
+	docker rm sensor2 || true
+	docker rm sensor3 || true
 	docker rm kafka1 || true
 	docker rm kafka2 || true
 	docker rm kafka3 || true
-	docker rm consumer || true
+	docker rm consumer1 || true
+	docker rm consumer2 || true
+	docker rm consumer3 || true
 	docker rm frontend || true
 	docker ps -a
 
@@ -42,12 +49,16 @@ up:
 	@echo "Subindo os containers..."
 	docker-compose up -d
 	@echo "Aguardando containers iniciarem..."
-	@sleep 10
+	@sleep 15
 	@echo "Iniciando captura de logs..."
-	@sudo mkdir -p logs
-	@sudo chown -R $$USER:$$USER logs
-	@nohup docker logs -f sensor > logs/producer.log 2>&1 &
-	@nohup docker logs -f consumer > logs/consumer.log 2>&1 &
+	@mkdir -p logs
+	sudo chown -R $$USER:$$USER logs
+	@nohup docker logs -f sensor1 > logs/sensor1.log 2>&1 &
+	@nohup docker logs -f sensor2 > logs/sensor2.log 2>&1 &
+	@nohup docker logs -f sensor3 > logs/sensor3.log 2>&1 &
+	@nohup docker logs -f consumer1 > logs/consumer1.log 2>&1 &
+	@nohup docker logs -f consumer2 > logs/consumer2.log 2>&1 &
+	@nohup docker logs -f consumer3 > logs/consumer3.log 2>&1 &
 	@nohup docker logs -f kafka1 > logs/kafka1.log 2>&1 &
 	@nohup docker logs -f kafka2 > logs/kafka2.log 2>&1 &
 	@nohup docker logs -f kafka3 > logs/kafka3.log 2>&1 &
@@ -65,17 +76,17 @@ logs:
 	docker-compose logs -f
 
 # Logs separados
-logs-producer:
-	@echo "Mostrando logs do Producer..."
-	docker-compose logs -f sensor
+logs-sensors:
+	@echo "Mostrando logs dos Sensores..."
+	docker-compose logs -f sensor1 sensor2 sensor3
 
 logs-kafka:
 	@echo "Mostrando logs do Kafka..."
-	docker-compose logs -f kafka
+	docker-compose logs -f kafka1 kafka2 kafka3
 
-logs-consumer:
-	@echo "Mostrando logs do Consumer..."
-	docker-compose logs -f consumer
+logs-consumers:
+	@echo "Mostrando logs dos Consumers..."
+	docker-compose logs -f consumer1 consumer2 consumer3
 
 logs-frontend:
 	@echo "Mostrando logs do Frontend..."

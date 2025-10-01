@@ -32,94 +32,69 @@ class LogService:
             print(f"Error reading {filename}: {e}")
             return None
 
-    def get_producer_messages(self) -> List[Dict]:
-        """Obtém mensagens de producer analisadas a partir dos logs"""
-        content = self._read_log_file("producer.log")
-        if not content:
-            return []
-
+    def get_sensors_messages(self) -> List[Dict]:
+        """Obtém mensagens de sensores analisadas a partir dos logs"""
         messages = []
+        for i in range(1, 4):
+            content = self._read_log_file(f"sensor{i}.log")
+            if not content:
+                continue
 
-        # montando as mensagens de log do producer
-        for line in content.split('\n'):
-            if "Mensagem enviada para" in line:
-                # Extract partition and offset from the line format:
-                # "Mensagem enviada para dados-sensores [partição 0, offset 18636] no broker líder brokerId=3"
-                match = re.search(
-                    r'Mensagem enviada para dados-sensores \[partição (\d+), offset (\d+)\]',
-                    line
-                )
-                if match:
-                    # Since there's no timestamp in the producer log, use current format
-                    import datetime
-                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    messages.append({
-                        'timestamp': timestamp,
-                        'partition': int(match.group(1)),
-                        'offset': int(match.group(2)),
-                        'type': 'sent',
-                        'status': 'success'
-                    })
+            for line in content.split('\n'):
+                if "Mensagem enviada para" in line:
+                    match = re.search(
+                        r'Mensagem enviada para dados-sensores \[partição (\d+), offset (\d+)\]',
+                        line
+                    )
+                    if match:
+                        import datetime
+                        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        messages.append({
+                            'timestamp': timestamp,
+                            'partition': int(match.group(1)),
+                            'offset': int(match.group(2)),
+                            'type': 'sent',
+                            'status': 'success',
+                            'sensor': f'sensor{i}'
+                        })
         return messages
 
-    def get_consumer_messages(self) -> List[Dict]:
-        """Obtém mensagens de consumer analisadas a partir dos logs"""
-        content = self._read_log_file("consumer.log")
-        if not content:
-            return []
-
+    def get_consumers_messages(self) -> List[Dict]:
+        """Obtém mensagens de consumers analisadas a partir dos logs"""
         messages = []
+        for i in range(1, 4):
+            content = self._read_log_file(f"consumer{i}.log")
+            if not content:
+                continue
 
-        # montando as mensagens de log do consumer
-        for line in content.split('\n'):
-            # Look for actual sensor data processing messages
-            if "Received sensor data: SensorData" in line:
-                # Extract timestamp from log format: "16:09:49.973 [main] INFO ..."
-                timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
-                if timestamp_match:
-                    # Convert to full timestamp format for consistency
-                    import datetime
-                    today = datetime.datetime.now().strftime('%Y-%m-%d')
-                    time_part = timestamp_match.group(1)[:8]  # Remove milliseconds
-                    full_timestamp = f"{today} {time_part}"
+            # Debug: Print how many lines we're processing for each consumer
+            lines = content.split('\n')
+            received_count = sum(1 for line in lines if "Received sensor data: SensorData" in line)
+            print(f"DEBUG: Consumer{i} has {len(lines)} total lines and {received_count} received messages", flush=True)
 
-                    # Extract machine ID from the sensor data
-                    machine_match = re.search(r"idMaquina='([^']+)'", line)
-                    machine_id = machine_match.group(1) if machine_match else "Unknown"
+            for line in content.split('\n'):
+                if "Received sensor data: SensorData" in line:
+                    timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
+                    if timestamp_match:
+                        import datetime
+                        today = datetime.datetime.now().strftime('%Y-%m-%d')
+                        time_part = timestamp_match.group(1)[:8]
+                        full_timestamp = f"{today} {time_part}"
 
-                    # Extract sector from the sensor data
-                    sector_match = re.search(r"setor='([^']+)'", line)
-                    sector = sector_match.group(1) if sector_match else "Unknown"
+                        machine_match = re.search(r"idMaquina='([^']+)'", line)
+                        machine_id = machine_match.group(1) if machine_match else "Unknown"
 
-                    messages.append({
-                        'timestamp': full_timestamp,
-                        'message': line.strip(),
-                        'type': 'received',
-                        'machine_id': machine_id,
-                        'sector': sector
-                    })
+                        sector_match = re.search(r"setor='([^']+)'", line)
+                        sector = sector_match.group(1) if sector_match else "Unknown"
 
-            # Also look for configuration messages as secondary info
-            elif ("bootstrap.servers" in line or
-                  "ConsumerConfig" in line or
-                  "group.id" in line or
-                  "auto.offset.reset" in line):
-
-                # Extract timestamp from log format: "16:09:19.609 [main] INFO ..."
-                timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
-                if timestamp_match:
-                    # Convert to full timestamp format for consistency
-                    import datetime
-                    today = datetime.datetime.now().strftime('%Y-%m-%d')
-                    time_part = timestamp_match.group(1)[:8]  # Remove milliseconds
-                    full_timestamp = f"{today} {time_part}"
-
-                    messages.append({
-                        'timestamp': full_timestamp,
-                        'message': line.strip(),
-                        'type': 'config'
-                    })
-
+                        messages.append({
+                            'timestamp': full_timestamp,
+                            'message': line.strip(),
+                            'type': 'received',
+                            'machine_id': machine_id,
+                            'sector': sector,
+                            'consumer': f'consumer{i}'
+                        })
         return messages
 
     def get_kafka_broker_status(self) -> Dict[str, str]:
@@ -131,39 +106,34 @@ class LogService:
             log_file = f"{broker}.log"
             content = self._read_log_file(log_file)
 
-            # If the log file does not exist, it means the broker has been stopped
             if content is None:
-                status[broker] = "LOG_CLEARED"  # New status for cleared logs
+                status[broker] = "LOG_CLEARED"
                 continue
 
             lines = content.strip().split('\n')
             broker_status = "UNKNOWN"
 
-            # Palavras-chave para busca
             startup_indicators = [
                 "started (kafka.server.KafkaServer)", "Kafka Server started",
                 "KafkaServer started", "[KafkaServer id=", "[KafkaRaftServer nodeId=",
-                "Transition from STARTING to STARTED", "BrokerServer id=", "Endpoint is now READY"
+                "Transition from STARTING to STARTED", "BrokerServer id=", "Endpoint is now READY",
+                "Scheduling unloading","Ignored unloading metadata for"
             ]
-            shutdown_indicators = ["shutting down", "Shutdown completed", "Killing broker container"]
+            shutdown_indicators = ["shutting down", "Shutdown completed"]
             error_indicators = ["FATAL", "CONTAINER_REMOVED"]
 
-            # Itera de trás para frente para encontrar o status mais recente
             for line in reversed(lines):
                 if not line.strip():
                     continue
 
-                # Verifica por erros fatais
                 if any(indicator in line.upper() for indicator in error_indicators):
                     broker_status = "KILLED"
-                    break  # Encontrou o status mais recente
+                    break
 
-                # Verifica por mensagens de shutdown
                 if any(indicator in line for indicator in shutdown_indicators):
                     broker_status = "STOPPED"
                     break
 
-                # Verifica por mensagens de startup
                 if any(indicator in line for indicator in startup_indicators):
                     broker_status = "RUNNING"
                     break
@@ -175,198 +145,197 @@ class LogService:
 
         return status
 
+    def get_services_status(self) -> Dict[str, str]:
+        """Obtém o status de cada sensor e consumer a partir da última mensagem de log relevante."""
+        services = ['sensor1', 'sensor2', 'sensor3', 'consumer1', 'consumer2', 'consumer3']
+        status = {}
+
+        for service in services:
+            log_file = f"{service}.log"
+            content = self._read_log_file(log_file)
+
+            if content is None:
+                status[service] = "LOG_CLEARED"
+                continue
+
+            lines = content.strip().split('\n')
+            service_status = "UNKNOWN"
+
+            startup_indicators = [
+                "Conectado ao Kafka", "Sensor configurado para a partição",
+                "Consumidor iniciado", "atribuído à partição"
+            ]
+            shutdown_indicators = ["shutting down", "Shutdown completed"]
+            error_indicators = ["FATAL", "EXCEPTION", "Error", "Falha"]
+
+            for line in reversed(lines):
+                if not line.strip():
+                    continue
+
+                if any(indicator in line for indicator in error_indicators):
+                    service_status = "ERROR"
+                    break
+
+                if any(indicator in line for indicator in shutdown_indicators):
+                    service_status = "STOPPED"
+                    break
+
+                if any(indicator in line for indicator in startup_indicators):
+                    service_status = "RUNNING"
+                    break
+
+            if service_status == "UNKNOWN" and lines and any(line.strip() for line in lines):
+                service_status = "STARTING"
+
+            status[service] = service_status
+
+        return status
+
     def get_system_stats(self) -> Dict:
         """Obtém estatísticas gerais do sistema a partir dos logs"""
-        producer_msgs = self.get_producer_messages()
-        consumer_msgs = self.get_consumer_messages()
-        received_msgs = [m for m in consumer_msgs if m['type'] == 'received']
+        sensors_msgs = self.get_sensors_messages()
+        consumers_msgs = self.get_consumers_messages()
+        received_msgs = [m for m in consumers_msgs if m['type'] == 'received']
 
-        # monta o dicionario de estatisticas
         stats = {
-            'total_sent': len(producer_msgs),
+            'total_sent': len(sensors_msgs),
             'total_received': len(received_msgs),
-            'last_sent': producer_msgs[-1] if producer_msgs else None,
+            'last_sent': sensors_msgs[-1] if sensors_msgs else None,
             'last_received': received_msgs[-1] if received_msgs else None,
-            'kafka_brokers': self.get_kafka_broker_status()
+            'kafka_brokers': self.get_kafka_broker_status(),
+            'services': self.get_services_status()
         }
 
         return stats
 
     def get_recent_activity(self, limit: int = 10) -> List[Dict]:
         """Obtém a atividade recente a partir de todos os logs"""
-        producer_msgs = self.get_producer_messages()
-        consumer_msgs = self.get_consumer_messages()
+        sensors_msgs = self.get_sensors_messages()
+        consumers_msgs = self.get_consumers_messages()
 
-        # Combina e ordena por timestamp
-        all_msgs = producer_msgs + consumer_msgs
+        all_msgs = sensors_msgs + consumers_msgs
         all_msgs.sort(key=lambda x: x['timestamp'], reverse=True)
 
         return all_msgs[:limit]
-
-    # ...existing code...
 
     def get_anomaly_messages(self) -> List[Dict]:
         """Detecta anomalias nos logs do consumer e outros componentes"""
         anomalies = []
 
-        # Check consumer logs for anomalies
-        consumer_content = self._read_log_file("consumer.log")
-        if consumer_content:
-            for line_num, line in enumerate(consumer_content.split('\n'), 1):
-                if not line.strip():
-                    continue
+        for i in range(1, 4):
+            consumer_content = self._read_log_file(f"consumer{i}.log")
+            if consumer_content:
+                for line_num, line in enumerate(consumer_content.split('\n'), 1):
+                    if not line.strip():
+                        continue
 
-                # Extract timestamp from consumer log format: "20:12:26.222 [main] INFO ..."
-                timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
-                timestamp = timestamp_match.group(1)[:8] if timestamp_match else "Unknown"
+                    timestamp_match = re.search(r'(\d{2}:\d{2}:\d{2}\.\d{3})', line)
+                    timestamp = timestamp_match.group(1)[:8] if timestamp_match else "Unknown"
 
-                # Convert to full timestamp
-                if timestamp != "Unknown":
-                    import datetime
-                    today = datetime.datetime.now().strftime('%Y-%m-%d')
-                    full_timestamp = f"{today} {timestamp}"
-                else:
-                    full_timestamp = "Unknown"
-
-                # Detect different types of anomalies in consumer logs
-                anomaly_detected = False
-                anomaly_type = ""
-                severity = "low"
-
-                # Error level anomalies
-                if any(error in line.upper() for error in ['KILLED', 'EXCEPTION', 'FATAL']):
-                    anomaly_detected = True
-                    anomaly_type = "consumer_error"
-                    severity = "high"
-
-                # Warning level anomalies - look for specific sensor anomalies
-                elif "WARN" in line.upper():
-                    anomaly_detected = True
-                    anomaly_type = "sensor_anomaly"
-                    severity = "medium"
-
-                    # Determine specific anomaly type based on content
-                    if "High temperature detected" in line:
-                        anomaly_type = "high_temperature"
-                        severity = "high"
-                    elif "Low temperature detected" in line:
-                        anomaly_type = "low_temperature"
-                        severity = "medium"
-                    elif "High vibration detected" in line:
-                        anomaly_type = "high_vibration"
-                        severity = "high"
-                    elif "Low vibration detected" in line:
-                        anomaly_type = "low_vibration"
-                        severity = "low"
-                    elif "High energy consumption detected" in line:
-                        anomaly_type = "high_energy"
-                        severity = "high"
-                    elif "High pressure detected" in line:
-                        anomaly_type = "high_pressure"
-                        severity = "medium"
-                    elif "Low pressure detected" in line:
-                        anomaly_type = "low_pressure"
-                        severity = "medium"
+                    if timestamp != "Unknown":
+                        import datetime
+                        today = datetime.datetime.now().strftime('%Y-%m-%d')
+                        full_timestamp = f"{today} {timestamp}"
                     else:
-                        anomaly_type = "sensor_warning"
+                        full_timestamp = "Unknown"
 
-                # Connection issues
-                elif any(conn in line.lower() for conn in ['connection refused', 'timeout', 'failed to connect', 'network error']):
-                    anomaly_detected = True
-                    anomaly_type = "connection_issue"
-                    severity = "high"
+                    anomaly_detected = False
+                    anomaly_type = ""
+                    severity = "low"
 
-                # Consumer group issues
-                elif any(group in line.lower() for group in ['rebalance', 'partition assignment', 'consumer group']):
-                    if any(issue in line.lower() for issue in ['failed', 'error', 'timeout']):
+                    if any(error in line.upper() for error in ['KILLED', 'EXCEPTION', 'FATAL']):
                         anomaly_detected = True
-                        anomaly_type = "consumer_group_issue"
+                        anomaly_type = "consumer_error"
+                        severity = "critical" if (("FATAL" in line.upper()) or ("KILLED" in line.upper())) else "high"
+
+                    elif "WARN" in line.upper():
+                        anomaly_detected = True
+                        anomaly_type = "sensor_anomaly"
                         severity = "medium"
 
-                # Offset issues
-                elif any(offset in line.lower() for offset in ['offset', 'commit']) and any(issue in line.lower() for issue in ['failed', 'error', 'invalid']):
-                    anomaly_detected = True
-                    anomaly_type = "offset_issue"
-                    severity = "medium"
+                        if "High temperature detected" in line:
+                            anomaly_type = "high_temperature"
+                            severity = "high"
+                        elif "Low temperature detected" in line:
+                            anomaly_type = "low_temperature"
+                            severity = "medium"
+                        elif "High vibration detected" in line:
+                            anomaly_type = "high_vibration"
+                            severity = "high"
+                        elif "Low vibration detected" in line:
+                            anomaly_type = "low_vibration"
+                            severity = "low"
+                        elif "High energy consumption detected" in line:
+                            anomaly_type = "high_energy"
+                            severity = "high"
+                        elif "Low energy consumption detected" in line:
+                            anomaly_type = "low_energy"
+                            severity = "low"
+                        else:
+                            anomaly_type = "sensor_warning"
 
-                # Deserialization errors
-                elif any(deser in line.lower() for deser in ['deserialization', 'deserializer', 'parse']) and "error" in line.lower():
-                    anomaly_detected = True
-                    anomaly_type = "deserialization_error"
-                    severity = "high"
+                    if anomaly_detected:
+                        machine_id = "Unknown"
+                        sector = "Unknown"
 
-                if anomaly_detected:
-                    # Extract machine and sector information if available
-                    machine_id = "Unknown"
-                    sector = "Unknown"
+                        machine_match = re.search(r'Machine:\s*([^,]+)', line)
+                        if machine_match:
+                            machine_id = machine_match.group(1).strip()
 
-                    # Look for machine and sector in the message
-                    machine_match = re.search(r'Machine:\s*([^,]+)', line)
-                    if machine_match:
-                        machine_id = machine_match.group(1).strip()
+                        sector_match = re.search(r'Sector:\s*([^,]+)', line)
+                        if sector_match:
+                            sector = sector_match.group(1).strip()
 
-                    sector_match = re.search(r'Sector:\s*([^,]+)', line)
-                    if sector_match:
-                        sector = sector_match.group(1).strip()
+                        sensor_value = None
+                        if "Temperature:" in line:
+                            temp_match = re.search(r'Temperature:\s*([\d.]+)', line)
+                            if temp_match:
+                                sensor_value = f"{temp_match.group(1)}°C"
+                        elif "Vibration:" in line:
+                            vib_match = re.search(r'Vibration:\s*([\d.]+)', line)
+                            if vib_match:
+                                sensor_value = f"{vib_match.group(1)} mm/s"
+                        elif "Energy Consumption:" in line:
+                            energy_match = re.search(r'Energy Consumption:\s*([\d.]+)', line)
+                            if energy_match:
+                                sensor_value = f"{energy_match.group(1)} kW"
 
-                    # Extract the specific value and unit for sensor anomalies
-                    sensor_value = None
-                    if "Temperature:" in line:
-                        temp_match = re.search(r'Temperature:\s*([\d.]+)', line)
-                        if temp_match:
-                            sensor_value = f"{temp_match.group(1)}°C"
-                    elif "Vibration:" in line:
-                        vib_match = re.search(r'Vibration:\s*([\d.]+)', line)
-                        if vib_match:
-                            sensor_value = f"{vib_match.group(1)} mm/s"
-                    elif "Energy Consumption:" in line:
-                        energy_match = re.search(r'Energy Consumption:\s*([\d.]+)', line)
-                        if energy_match:
-                            sensor_value = f"{energy_match.group(1)} kW"
-                    elif "Pressure:" in line:
-                        pressure_match = re.search(r'Pressure:\s*([\d.]+)', line)
-                        if pressure_match:
-                            sensor_value = f"{pressure_match.group(1)} bar"
+                        anomalies.append({
+                            'timestamp': full_timestamp,
+                            'type': anomaly_type,
+                            'severity': severity,
+                            'message': line.strip(),
+                            'source': f'consumer{i}.log',
+                            'line': line_num,
+                            'component': f'consumer{i}',
+                            'machine_id': machine_id,
+                            'sector': sector,
+                            'sensor_value': sensor_value
+                        })
 
-                    anomalies.append({
-                        'timestamp': full_timestamp,
-                        'type': anomaly_type,
-                        'severity': severity,
-                        'message': line.strip(),
-                        'source': 'consumer.log',
-                        'line': line_num,
-                        'component': 'consumer',
-                        'machine_id': machine_id,
-                        'sector': sector,
-                        'sensor_value': sensor_value
-                    })
+        for i in range(1, 4):
+            producer_content = self._read_log_file(f"sensor{i}.log")
+            if producer_content:
+                for line_num, line in enumerate(producer_content.split('\n'), 1):
+                    if not line.strip():
+                        continue
 
-        # Also check producer logs for completeness
-        producer_content = self._read_log_file("producer.log")
-        if producer_content:
-            for line_num, line in enumerate(producer_content.split('\n'), 1):
-                if not line.strip():
-                    continue
+                    if any(error in line.lower() for error in ['error', 'exception', 'failed', 'timeout']):
+                        import datetime
+                        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-                # Look for errors in producer logs
-                if any(error in line.lower() for error in ['error', 'exception', 'failed', 'timeout']):
-                    # Extract timestamp if available, otherwise use current time
-                    import datetime
-                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        severity = 'high' if any(critical in line.lower() for critical in ['error', 'exception', 'failed']) else 'medium'
 
-                    severity = 'high' if any(critical in line.lower() for critical in ['error', 'exception', 'failed']) else 'medium'
+                        anomalies.append({
+                            'timestamp': timestamp,
+                            'type': 'producer_error',
+                            'severity': severity,
+                            'message': line.strip(),
+                            'source': f'sensor{i}.log',
+                            'line': line_num,
+                            'component': f'sensor{i}'
+                        })
 
-                    anomalies.append({
-                        'timestamp': timestamp,
-                        'type': 'producer_error',
-                        'severity': severity,
-                        'message': line.strip(),
-                        'source': 'producer.log',
-                        'line': line_num,
-                        'component': 'producer'
-                    })
-
-        # Check Kafka broker logs for anomalies
         for broker_file in ['kafka1.log', 'kafka2.log', 'kafka3.log']:
             broker_content = self._read_log_file(broker_file)
             if broker_content:
@@ -374,15 +343,11 @@ class LogService:
                     if not line.strip():
                         continue
 
-                    # Extract timestamp from Kafka log format: [2024-09-29 20:12:26,222]
                     timestamp_match = re.search(r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d{3}\]', line)
                     timestamp = timestamp_match.group(1) if timestamp_match else "Unknown"
 
-                    # Detect Kafka broker anomalies
-                    if any(error in line.upper() for error in ['ERROR', 'FATAL', 'EXCEPTION']):
-                        severity = 'critical' if 'FATAL' in line.upper() else 'high'
-
-                        # Truncate long messages
+                    if any(error in line.upper() for error in ['ERROR', 'FATAL', 'EXCEPTION', 'KILLED']):
+                        severity = 'critical'
                         message = line.strip()
                         if len(message) > 150:
                             message = message[:150] + "..."
@@ -397,24 +362,6 @@ class LogService:
                             'component': 'kafka_broker'
                         })
 
-                    # Warn level issues
-                    elif 'WARN' in line.upper():
-                        message = line.strip()
-                        if len(message) > 150:
-                            message = message[:150] + "..."
-
-                        anomalies.append({
-                            'timestamp': timestamp,
-                            'type': 'broker_warning',
-                            'severity': 'medium',
-                            'message': message,
-                            'source': broker_file,
-                            'line': line_num,
-                            'component': 'kafka_broker'
-                        })
-
-        # Sort anomalies by timestamp (newest first) and limit to recent ones
         anomalies.sort(key=lambda x: x['timestamp'] if x['timestamp'] != "Unknown" else "0000-00-00 00:00:00", reverse=True)
 
-        return anomalies[:100]  # Return last 100 anomalies
-
+        return anomalies[:100]
