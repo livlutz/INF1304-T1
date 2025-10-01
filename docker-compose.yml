@@ -21,7 +21,7 @@ services:
       KAFKA_DEFAULT_REPLICATION_FACTOR: 2
       KAFKA_MIN_INSYNC_REPLICAS: 1
       # Disable auto topic creation to enforce explicit partition configuration
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      #KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_NUM_PARTITIONS: 3
     volumes:
       - kafka1_logs:/var/lib/kafka/data/
