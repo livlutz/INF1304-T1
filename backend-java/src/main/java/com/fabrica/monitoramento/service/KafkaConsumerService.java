@@ -62,13 +62,13 @@ public class KafkaConsumerService {
      * Cada mensagem é desserializada e processada.
      */
     public void consume() {
-        // Inscreve-se no tópico Kafka
+        // Inscreve-se no tópico Kafka - usando grupo consumidor para balanceamento automático
         consumer.subscribe(Collections.singletonList("dados-sensores"));
         logger.info("Consumidor iniciado, inscrito no tópico 'dados-sensores'");
 
         // Continuamente faz polling por novas mensagens
         while (true) {
-            ConsumerRecords<String, String> records = consumer.poll(Duration.ZERO);
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
             for (ConsumerRecord<String, String> record : records) {
                 try {
                     // Desserializa a mensagem JSON para um objeto SensorData
