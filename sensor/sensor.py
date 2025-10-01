@@ -11,7 +11,7 @@ import json
 import random
 import time
 from datetime import datetime
-from kafka import KafkaProducer,KafkaAdminClient
+from kafka import KafkaProducer, KafkaAdminClient
 
 # Configura o stdout para flush imediato
 sys.stdout.reconfigure(line_buffering=True)

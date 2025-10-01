@@ -23,23 +23,25 @@ class LogAnalyzer:
                 logs_dir = '/workspaces/INF1304-T1/logs'
         self.log_service = LogService(logs_dir)
 
-    def read_producer_logs(self):
-        """Lê e analisa logs do producer"""
-        return self.log_service.get_producer_messages()
+    def read_sensors_logs(self):
+        """Lê e analisa logs dos sensores"""
+        return self.log_service.get_sensors_messages()
 
-    def read_consumer_logs(self):
-        """Lê e analisa logs do consumer"""
-        return self.log_service.get_consumer_messages()
+    def read_consumers_logs(self):
+        """Lê e analisa logs dos consumidores"""
+        return self.log_service.get_consumers_messages()
 
     def get_kafka_status(self):
         """Verifica status dos brokers Kafka"""
         return self.log_service.get_kafka_broker_status()
 
+    def get_services_status(self):
+        """Verifica status dos sensores e consumidores"""
+        return self.log_service.get_services_status()
+
     def get_anomaly_messages(self):
         """Retorna mensagens de anomalia detectadas"""
         return self.log_service.get_anomaly_messages()
-
-    # ...existing code...
 
     def display_streamlit_dashboard(self):
         """Exibe um dashboard Streamlit com informações dos logs"""
@@ -50,9 +52,10 @@ class LogAnalyzer:
 
         # Get data
         kafka_status = self.get_kafka_status()
-        producer_msgs = self.read_producer_logs()
-        consumer_msgs = self.read_consumer_logs()
-        received_msgs = [m for m in consumer_msgs if m['type'] == 'received']
+        services_status = self.get_services_status()
+        sensors_msgs = self.read_sensors_logs()
+        consumers_msgs = self.read_consumers_logs()
+        received_msgs = [m for m in consumers_msgs if m['type'] == 'received']
         anomalies = self.get_anomaly_messages()
 
         # Create columns for layout
@@ -73,22 +76,63 @@ class LogAnalyzer:
                 else:
                     st.warning(f"● {broker}: {status}")
 
-        # Producer Stats
+        # Services Status
         with col2:
-            st.subheader("📤 Producer Stats")
-            st.metric("Total Messages Sent", len(producer_msgs))
-            if producer_msgs:
-                latest = producer_msgs[-1]
-                st.text(f"Last message: {latest['timestamp']}")
-                st.text(f"Partition: {latest['partition']}")
+            st.subheader("⚙️ Services Status")
+            # Separate sensors and consumers for display
+            sensors_status = {k: v for k, v in services_status.items() if 'sensor' in k}
+            consumers_status = {k: v for k, v in services_status.items() if 'consumer' in k}
 
-        # Consumer Stats
+            st.markdown("**Sensors**")
+            for service, status in sensors_status.items():
+                if status == "RUNNING":
+                    st.success(f"● {service}: {status}")
+                elif status == "ERROR":
+                    st.error(f"● {service}: {status}")
+                else:
+                    st.warning(f"● {service}: {status}")
+
+            st.markdown("**Consumers**")
+            for service, status in consumers_status.items():
+                if status == "RUNNING":
+                    st.success(f"● {service}: {status}")
+                elif status == "ERROR":
+                    st.error(f"● {service}: {status}")
+                else:
+                    st.warning(f"● {service}: {status}")
+
+
+        # Stats
         with col3:
-            st.subheader("📥 Consumer Stats")
-            st.metric("Total Messages Received", len(received_msgs))
-            if received_msgs:
-                latest = received_msgs[-1]
-                st.text(f"Last message: {latest['timestamp']}")
+            st.subheader("📈 Global Stats")
+            # Messages per Sensor with better visualization
+            st.markdown("**Messages per Sensor**")
+            sensor_cols = st.columns(3)
+            total_sensor_msgs = 0
+            for i in range(1, 4):
+                sensor_name = f"sensor{i}"
+                count = len([m for m in sensors_msgs if m.get('sensor') == sensor_name])
+                total_sensor_msgs += count
+                with sensor_cols[i-1]:
+                    st.metric(f"Sensor {i}", count)
+
+            # Total messages sent by all sensors
+            st.markdown(f"**Total Messages Sent by All Sensors: {total_sensor_msgs}**")
+
+            # Messages per Consumer with better visualization
+            st.markdown("**Messages per Consumer**")
+            consumer_cols = st.columns(3)
+            total_consumer_msgs = 0
+            for i in range(1, 4):
+                consumer_name = f"consumer{i}"
+                count = len([m for m in received_msgs if m.get('consumer') == consumer_name])
+                total_consumer_msgs += count
+                with consumer_cols[i-1]:
+                    st.metric(f"Consumer {i}", count)
+
+            # Total messages received by all consumers
+            st.markdown(f"**Total Messages Received by All Consumers: {total_consumer_msgs}**")
+
 
         # Anomalies Section - Full width
         st.markdown("---")
@@ -145,10 +189,10 @@ class LogAnalyzer:
             all_activities = []
 
             # Add producer activities
-            for msg in producer_msgs[-5:]:
+            for msg in sensors_msgs[-5:]:
                 all_activities.append({
                     'timestamp': msg['timestamp'],
-                    'type': '📤 Message Sent',
+                    'type': f"📤 Message Sent by {msg['sensor']}",
                     'details': f"Partition {msg['partition']}, Offset {msg['offset']}"
                 })
 
@@ -156,8 +200,8 @@ class LogAnalyzer:
             for msg in received_msgs[-5:]:
                 all_activities.append({
                     'timestamp': msg['timestamp'],
-                    'type': '📥 Message Received',
-                    'details': "Consumer activity"
+                    'type': f"📥 Message Received by {msg['consumer']}",
+                    'details': f"Machine {msg['machine_id']}"
                 })
 
             # Sort by timestamp
@@ -170,8 +214,6 @@ class LogAnalyzer:
                     st.markdown("---")
             else:
                 st.info("No recent activity found")
-
-# ...existing code...
 
 
 def main():
