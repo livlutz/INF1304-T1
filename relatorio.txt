@@ -1,6 +1,27 @@
-TODO :
-Relatório com
-o Documentação de instalação e uso
-o Explicação da arquitetura
-o Testes de falha
-o Exibição dos resultados
+---
+
+Relatório de Implementação
+
+O projeto foi desenvolvido para simular um ambiente distribuído com tolerância a falhas utilizando Kafka, sensores, consumidores e um dashboard de monitoramento.
+
+O que foi implementado:
+- Criação de um cluster Kafka com três brokers e configuração manual de tópicos com múltiplas partições.
+- Desenvolvimento de sensores e consumidores (ambos três) em containers separados, todos integrados ao Kafka.
+- Implementação de scripts para simular falhas e recuperação automática de brokers e consumidores.
+- Dashboard interativo em Streamlit para monitoramento em tempo real dos sensores, consumidores, brokers e anomalias detectadas.
+- Lógica para contagem cumulativa de anomalias, com opção de reset manual.
+- Documentação do código principal com docstrings para todas as classes e funções.
+
+O que funcionou:
+- Distribuição correta das mensagens entre os consumidores após ajuste das partições do tópico Kafka.
+- Simulação de falhas e recuperação dos serviços via Makefile e scripts.
+- Dashboard exibindo métricas, status dos serviços e anomalias de forma clara e interativa.
+- Persistência da contagem de anomalias entre atualizações do dashboard.
+
+O que não funcionou ou apresentou dificuldades:
+- Inicialmente, as mensagens eram entregues apenas para um consumidor devido à configuração incorreta das partições do tópico.
+- Pequenos problemas de sintaxe e lint no código Python, corrigidos posteriormente.
+- Algumas limitações na visualização dos logs e na detecção de anomalias em tempo real devido ao formato dos arquivos de log.
+- Nao observamos nada que nao tenha funcionado do enunciado do trabalho, apenas as dificuldades detalhadas acima.
+
+---

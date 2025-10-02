@@ -30,11 +30,149 @@ Thiago Pereira Camerato - 2212580
 
 ---
 
-## Critério para determinação de anomalias
+## 📋 Critério para determinação de anomalias
 
-TODO: completar
+O sistema detecta anomalias baseado em:
+- Valores de temperatura fora do range esperado (>80°C ou <10°C)
+- Variações bruscas de pressão
+- Padrões anômalos de vibração
+- Falhas de comunicação entre sensores e consumidores
 
+## 🚀 Instalação da Aplicação
 
+### Pré-requisitos
+
+- **Docker** >= 20.10
+- **Docker Compose** >= 2.0
+- **Make** (opcional, mas recomendado)
+- **Git**
+
+### 1. Clone o Repositório
+
+```bash
+git clone https://github.com/livlutz/INF1304-T1.git
+cd INF1304-T1
+```
+
+### 2. Verificar Dependências
+
+Certifique-se de que o Docker está rodando:
+
+```bash
+docker --version
+docker-compose --version
+```
+
+### 3. Construir e Iniciar o Sistema
+
+#### Opção A: Usando Makefile (Recomendado)
+
+```bash
+# Iniciar todo o sistema
+make all
+
+# Ou individualmente:
+make build    # Constrói todas as imagens
+make up       # Inicia todos os containers
+make logs     # Exibe logs em tempo real
+```
+
+#### Opção B: Usando Docker Compose diretamente
+
+```bash
+# Construir imagens
+docker-compose build
+
+# Iniciar serviços
+docker-compose up -d
+
+# Ver logs
+docker-compose logs -f
+```
+
+## 🎮 Instruções de Operação
+
+### Dashboard de Monitoramento
+
+1. **Acesse o Dashboard**: Abra `http://localhost:8501` no navegador
+2. **Recursos disponíveis**:
+   - Status dos brokers Kafka (kafka1, kafka2, kafka3)
+   - Métricas dos sensores e consumidores
+   - Anomalias detectadas
+   - Atividade recente do sistema
+
+### Comandos Principais
+
+#### Inicialização Completa
+```bash
+make all          # Constrói, inicia e exibe logs
+```
+
+#### Gerenciamento de Serviços
+```bash
+make up           # Inicia todos os containers
+make down         # Para todos os containers
+make clean        # Remove containers e imagens
+```
+
+#### Monitoramento
+```bash
+make logs                    # Logs de todos os serviços
+make logs-frontend          # Logs apenas do dashboard
+make logs-sensors           # Logs dos sensores
+make logs-consumers         # Logs dos consumidores
+make logs-kafka             # Logs dos brokers Kafka
+```
+
+#### Simulação de Falhas
+```bash
+make failure                # Simula falha aleatória (broker ou consumidor)
+make recovery               # Recupera serviços com falha
+```
+
+### Verificação do Sistema
+
+#### Verificar Status dos Containers
+```bash
+docker-compose ps
+```
+
+#### Verificar Logs Específicos
+```bash
+docker logs consumer1
+docker logs consumer2
+docker logs consumer3
+docker logs sensor1
+docker logs sensor2
+docker logs sensor3
+docker logs kafka1
+docker logs kafka2
+docker logs kafka3
+```
+
+### Resolução de Problemas
+
+#### Se os containers não iniciarem:
+```bash
+make clean
+make all
+```
+
+#### Se as mensagens não estiverem sendo distribuídas:
+```bash
+# Verificar se o tópico tem 3 partições
+docker exec -it kafka1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic dados-sensores
+
+# Recriar tópico se necessário
+docker exec -it kafka1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic dados-sensores
+docker exec -it kafka1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic dados-sensores --partitions 3 --replication-factor 2
+```
+
+#### Reset do Sistema
+```bash
+make clean        # Remove tudo
+make all          # Reconstrói do zero
+```
 
 ## 🗂 Arquitetura de Diretórios
 
