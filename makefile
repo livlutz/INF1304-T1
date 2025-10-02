@@ -4,12 +4,34 @@ PRODUCER_DIR = sensor
 CONSUMER_DIR = consumer
 FRONTEND_DIR = frontend
 
-#TODO: ainda nao temos tudo para rodar tudo
-#TODO: adicionar o make clean depois de algum tempo??
+# Simulação completa com falhas aleatórias
 all:
-	make build
 	make up
-
+	@sleep 30
+	make failure
+	@sleep 20
+	make recovery
+	@sleep 30
+	make failure
+	@sleep 20
+	make recovery
+	@sleep 30
+	make failure
+	@sleep 20
+	make recovery
+	@sleep 30
+	make failure
+	@sleep 20
+	make recovery
+	@sleep 30
+	make failure
+	@sleep 20
+	make recovery
+	@sleep 30
+	make failure
+	@sleep 20
+	make recovery
+	make stop
 
 #Para e remove os containers
 stop:
@@ -62,6 +84,7 @@ up:
 	@nohup docker logs -f kafka1 > logs/kafka1.log 2>&1 &
 	@nohup docker logs -f kafka2 > logs/kafka2.log 2>&1 &
 	@nohup docker logs -f kafka3 > logs/kafka3.log 2>&1 &
+	@nohup docker logs -f frontend > logs/frontend.log 2>&1 &
 	@echo "Logs sendo salvos automaticamente em logs/"
 	make logs-frontend
 
@@ -89,16 +112,83 @@ logs-consumers:
 	docker-compose logs -f consumer1 consumer2 consumer3
 
 logs-frontend:
-	@echo "Mostrando logs do Frontend..."
-	docker-compose logs -f frontend
+	@echo "=== Frontend Status ==="
+	@echo "Aguardando frontend inicializar..."
+	@sleep 5
+	@docker logs frontend 2>/dev/null | head -10 || echo "Frontend ainda não iniciou completamente"
+
+# Simula a queda aleatória de um broker ou consumer usando os scripts existentes
+failure:
+	@mkdir -p logs
+	@RANDOM_SEED=$$(date +%s%N); \
+	COMPONENT_TYPE=$$(($$RANDOM_SEED % 2)); \
+	echo "Tipo de componente selecionado: $$COMPONENT_TYPE (0=broker, 1=consumer)"; \
+	if [ $$COMPONENT_TYPE -eq 0 ]; then \
+		BROKER_NUM=$$(($$RANDOM_SEED % 3 + 1)); \
+		BROKER_NAME="kafka$$BROKER_NUM"; \
+		echo "Derrubando broker: $$BROKER_NAME"; \
+		echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Falha no broker $$BROKER_NAME usando kill_broker.sh" >> logs/simulation.log; \
+		cd scripts && chmod +x kill_broker.sh && ./kill_broker.sh $$BROKER_NAME && cd ..; \
+		echo "FAILED_COMPONENT=$$BROKER_NAME" > .simulation_state; \
+		echo "COMPONENT_TYPE=BROKER" >> .simulation_state; \
+	else \
+		CONSUMER_NUM=$$(($$RANDOM_SEED % 3 + 1)); \
+		CONSUMER_NAME="consumer$$CONSUMER_NUM"; \
+		echo "Derrubando consumer: $$CONSUMER_NAME"; \
+		echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Falha no consumer $$CONSUMER_NAME usando kill_consumer.sh" >> logs/simulation.log; \
+		cd scripts && chmod +x kill_consumer.sh && ./kill_consumer.sh $$CONSUMER_NAME && cd ..; \
+		echo "FAILED_COMPONENT=$$CONSUMER_NAME" > .simulation_state; \
+		echo "COMPONENT_TYPE=CONSUMER" >> .simulation_state; \
+	fi
+
+# Decide se vai recuperar o componente ou deixar em falha
+recovery:
+	@if [ ! -f .simulation_state ]; then \
+		echo "Erro: arquivo .simulation_state não encontrado. Execute 'make failure' primeiro."; \
+		exit 1; \
+	fi
+	@RANDOM_SEED=$$(date +%s%N); \
+	RECOVERY_DECISION=$$(($$RANDOM_SEED % 2)); \
+	FAILED_COMPONENT=$$(grep FAILED_COMPONENT .simulation_state | cut -d'=' -f2); \
+	COMPONENT_TYPE=$$(grep COMPONENT_TYPE .simulation_state | cut -d'=' -f2); \
+	echo "$$RECOVERY_DECISION (0=manter falha, 1=recuperar)"; \
+	if [ $$RECOVERY_DECISION -eq 0 ]; then \
+		echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Decisão: $$FAILED_COMPONENT em falha" >> logs/simulation.log; \
+	else \
+		echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Decisão: Recuperando $$FAILED_COMPONENT" >> logs/simulation.log; \
+		if [ "$$COMPONENT_TYPE" = "BROKER" ]; then \
+			make recover-broker BROKER=$$FAILED_COMPONENT; \
+		else \
+			make recover-consumer CONSUMER=$$FAILED_COMPONENT; \
+		fi; \
+		echo "=== COMPONENTE $$FAILED_COMPONENT RECUPERADO ==="; \
+	fi
+
+# Recupera um broker específico
+recover-broker:
+	@echo "Recuperando broker: $(BROKER)"
+	@docker start $(BROKER) || true
+	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Broker $(BROKER) recuperado" >> logs/simulation.log
+	@sleep 5
+
+# Recupera um consumer específico
+recover-consumer:
+	@echo "Recuperando consumer: $(CONSUMER)"
+	@docker start $(CONSUMER) || true
+	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Consumer $(CONSUMER) recuperado com sucesso" >> logs/simulation.log
+	@sleep 5
 
 # Limpa build dos containers
 clean:
 	@echo "Parando e removendo containers..."
 	make stop
 	@echo "Removendo imagens Docker..."
-	docker rmi -f inf1304-t1-sensor || true
-	docker rmi -f inf1304-t1-consumer || true
+	docker rmi -f inf1304-t1-sensor1 || true
+	docker rmi -f inf1304-t1-sensor2 || true
+	docker rmi -f inf1304-t1-sensor3 || true
+	docker rmi -f inf1304-t1-consumer1 || true
+	docker rmi -f inf1304-t1-consumer2 || true
+	docker rmi -f inf1304-t1-consumer3 || true
 	docker rmi -f inf1304-t1-frontend || true
 	docker rmi -f apache/kafka:4.0.0 || true
 	@echo "Removendo volumes Docker..."
@@ -106,5 +196,7 @@ clean:
 	@echo "Limpando logs..."
 	sudo rm -rf logs/*.log || true
 	sudo rm -rf logs/ || true
+	@echo "Removendo arquivos de simulação..."
+	rm -f .simulation_state || true
 	@echo "Limpeza completa finalizada!"
 	docker ps -a

@@ -1,3 +1,10 @@
+"""
+Dashboard de Monitoramento Kafka
+
+Este módulo implementa um dashboard interativo usando Streamlit para monitorar
+o sistema de sensores, consumidores Kafka, brokers e detectar anomalias em tempo real.
+"""
+
 import os
 import time
 import streamlit as st
@@ -12,39 +19,70 @@ st.set_page_config(
 )
 
 class LogAnalyzer:
+    """
+    Classe responsável por analisar logs do sistema de monitoramento.
+
+    Esta classe centraliza a leitura e análise dos logs de sensores, consumidores Kafka,
+    brokers e anomalias, fornecendo métodos para extrair informações e exibir
+    um dashboard interativo com Streamlit.
+
+    Attributes:
+        log_service (LogService): Instância do serviço de logs para leitura dos arquivos.
+    """
     def __init__(self, logs_dir=None):
+        """Inicializa o analisador de logs.
+
+        Args:
+            logs_dir (str, optional): Diretório dos logs. Padrão é None.
+        """
         if logs_dir is None:
-            # Auto-detect the correct logs directory based on environment
+            # Detecta o diretório de logs no ambiente
             if os.path.exists('/app/logs'):
-                # Running inside Docker container
+                # Executando dentro do container Docker
                 logs_dir = '/app/logs'
             else:
-                # Running in development environment
+                # Executando em ambiente de desenvolvimento
                 logs_dir = '/workspaces/INF1304-T1/logs'
         self.log_service = LogService(logs_dir)
 
     def read_sensors_logs(self):
-        """Lê e analisa logs dos sensores"""
+        """Lê e analisa logs dos sensores
+
+        Returns:
+            list: Lista de mensagens dos sensores
+        """
         return self.log_service.get_sensors_messages()
 
     def read_consumers_logs(self):
-        """Lê e analisa logs dos consumidores"""
+        """Lê e analisa logs dos consumidores
+        Returns:
+            list: Lista de mensagens dos consumidores
+        """
         return self.log_service.get_consumers_messages()
 
     def get_kafka_status(self):
-        """Verifica status dos brokers Kafka"""
+        """ Pega os status dos kafkas
+        Returns:
+            list: Lista de status dos brokers Kafka
+        """
         return self.log_service.get_kafka_broker_status()
 
     def get_services_status(self):
-        """Verifica status dos sensores e consumidores"""
+        """ Pega os status dos serviços (sensores e consumidores)
+        Returns:
+            list: Lista de status dos serviços
+        """
         return self.log_service.get_services_status()
 
     def get_anomaly_messages(self):
-        """Retorna mensagens de anomalia detectadas"""
+        """ Pega as mensagens de anomalias detectadas
+        Returns:
+            list: Lista de mensagens de anomalias
+        """
         return self.log_service.get_anomaly_messages()
 
     def display_streamlit_dashboard(self):
-        """Exibe um dashboard Streamlit com informações dos logs"""
+        """Exibe o dashboard usando Streamlit"""
 
         # Main title
         st.title("📊 Kafka Monitoring Dashboard")
@@ -79,7 +117,7 @@ class LogAnalyzer:
         # Services Status
         with col2:
             st.subheader("⚙️ Services Status")
-            # Separate sensors and consumers for display
+            # Separa sensores e  consumers para display
             sensors_status = {k: v for k, v in services_status.items() if 'sensor' in k}
             consumers_status = {k: v for k, v in services_status.items() if 'consumer' in k}
 
@@ -105,8 +143,7 @@ class LogAnalyzer:
         # Stats
         with col3:
             st.subheader("📈 Global Stats")
-            # Messages per Sensor with better visualization
-            st.markdown("**Messages per Sensor**")
+            # Mensagens por Sensor             st.markdown("**Messages per Sensor**")
             sensor_cols = st.columns(3)
             total_sensor_msgs = 0
             for i in range(1, 4):
@@ -116,10 +153,10 @@ class LogAnalyzer:
                 with sensor_cols[i-1]:
                     st.metric(f"Sensor {i}", count)
 
-            # Total messages sent by all sensors
+            # Total de  mensagens sent by all sensors
             st.markdown(f"**Total Messages Sent by All Sensors: {total_sensor_msgs}**")
 
-            # Messages per Consumer with better visualization
+            # Mensagens por Consumer
             st.markdown("**Messages per Consumer**")
             consumer_cols = st.columns(3)
             total_consumer_msgs = 0
@@ -130,33 +167,52 @@ class LogAnalyzer:
                 with consumer_cols[i-1]:
                     st.metric(f"Consumer {i}", count)
 
-            # Total messages received by all consumers
+            # Total de mensagens recebidas por consumidor
             st.markdown(f"**Total Messages Received by All Consumers: {total_consumer_msgs}**")
 
 
-        # Anomalies Section - Full width
+        # Anomalies Section
         st.markdown("---")
         col_anomalies, col_recent = st.columns(2)
 
         with col_anomalies:
             st.subheader("⚠️ Detected Anomalies")
-            if anomalies:
-                # Show anomaly count by severity
-                severity_counts = {}
-                for anomaly in anomalies:
-                    severity = anomaly['severity']
-                    severity_counts[severity] = severity_counts.get(severity, 0) + 1
 
-                # Display severity metrics
+            # Initialize cumulative counters in session state
+            if 'cumulative_anomaly_counts' not in st.session_state:
+                st.session_state.cumulative_anomaly_counts = {
+                    'critical': 0,
+                    'high': 0,
+                    'medium': 0,
+                    'low': 0
+                }
+
+            # Initialize processed anomalies set to avoid double counting
+            if 'processed_anomalies' not in st.session_state:
+                st.session_state.processed_anomalies = set()
+
+            if anomalies:
+                # Add new anomalies to cumulative count
+                for anomaly in anomalies:
+                    # Create unique identifier for anomaly (timestamp + message)
+                    anomaly_id = f"{anomaly['timestamp']}_{anomaly['message'][:50]}"
+
+                    # Only count if not already processed
+                    if anomaly_id not in st.session_state.processed_anomalies:
+                        severity = anomaly['severity']
+                        st.session_state.cumulative_anomaly_counts[severity] += 1
+                        st.session_state.processed_anomalies.add(anomaly_id)
+
+                # Display cumulative severity metrics
                 metric_cols = st.columns(4)
                 with metric_cols[0]:
-                    st.metric("🔴 Critical", severity_counts.get('critical', 0))
+                    st.metric("🔴 Critical", st.session_state.cumulative_anomaly_counts['critical'])
                 with metric_cols[1]:
-                    st.metric("🟠 High", severity_counts.get('high', 0))
+                    st.metric("🟠 High", st.session_state.cumulative_anomaly_counts['high'])
                 with metric_cols[2]:
-                    st.metric("🟡 Medium", severity_counts.get('medium', 0))
+                    st.metric("🟡 Medium", st.session_state.cumulative_anomaly_counts['medium'])
                 with metric_cols[3]:
-                    st.metric("🔵 Low", severity_counts.get('low', 0))
+                    st.metric("🔵 Low", st.session_state.cumulative_anomaly_counts['low'])
 
                 st.markdown("**Recent Anomalies:**")
 
@@ -230,12 +286,12 @@ def main():
     if st.sidebar.button("Refresh Now"):
         st.rerun()
 
-    # Create analyzer and display dashboard
+    # Cria o dashboard
     try:
         analyzer = LogAnalyzer()
         analyzer.display_streamlit_dashboard()
 
-        # Auto-refresh functionality
+        # Auto-refresh
         if auto_refresh:
             time.sleep(5)
             st.rerun()
