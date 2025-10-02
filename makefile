@@ -183,8 +183,12 @@ clean:
 	@echo "Parando e removendo containers..."
 	make stop
 	@echo "Removendo imagens Docker..."
-	docker rmi -f inf1304-t1-sensor || true
-	docker rmi -f inf1304-t1-consumer || true
+	docker rmi -f inf1304-t1-sensor1 || true
+	docker rmi -f inf1304-t1-sensor2 || true
+	docker rmi -f inf1304-t1-sensor3 || true
+	docker rmi -f inf1304-t1-consumer1 || true
+	docker rmi -f inf1304-t1-consumer2 || true
+	docker rmi -f inf1304-t1-consumer3 || true
 	docker rmi -f inf1304-t1-frontend || true
 	docker rmi -f apache/kafka:4.0.0 || true
 	@echo "Removendo volumes Docker..."

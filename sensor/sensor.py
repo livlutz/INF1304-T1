@@ -1,10 +1,3 @@
-"""
-Gerar dados periodicos (formato Json)
-Uma fábrica inteligente possui diversas máquinas espalhadas em diferentes setores (linha de produção,
-refrigeração, empacotamento, etc.). Cada máquina é equipada com sensores que enviam dados (temperatura,
-vibração, consumo de energia, etc.) continuamente para um sistema central que processa esses dados em tempo
-real para detectar anomalias, falhas ou padrões de uso.
-"""
 import os
 import sys
 import json
@@ -15,14 +8,14 @@ from kafka import KafkaProducer, KafkaAdminClient
 
 # Configura o stdout para flush imediato
 sys.stdout.reconfigure(line_buffering=True)
+
 # Semente para reprodutibilidade
 random.seed(datetime.now().timestamp())
 
 # Configurações da simulação
-#TODO : ver se tem mais setores
 SETORES = ["linha_producao", "refrigeração", "empacotamento","montagem","inspeção","manutenção","soldagem","transporte","qualidade"]
 
-#TODO : ver se o min e max fazem sentido
+# Definição dos tipos de sensores e seus intervalos de valores
 TIPOS_SENSORES = {
     "temperatura": {"min": 2.0, "max": 80.0, "unidade": "C"},
     "vibracao": {"min": 0.5, "max": 5.0, "unidade": "mm/s"},
@@ -36,8 +29,9 @@ KAFKA_BROKERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka1:9092").split(",")
 KAFKA_TOPIC = os.getenv('KAFKA_TOPIC', 'dados-sensores')
 
 def gerar_dados_maquina():
-    """
-    Gera um conjunto de dados simulados para uma única máquina.
+    """ Gera um conjunto de dados simulados para uma única máquina.
+    Returns:
+        dict: Dados simulados da máquina.
     """
     dados_maquina = {
         "id_maquina": f"maquina_{random.randint(1, 100)}",
@@ -72,6 +66,8 @@ def criar_producer():
         raise
 
 def obter_lider(topico, particao):
+    """Pega o lider da particao
+    """
     try:
         admin = KafkaAdminClient(bootstrap_servers=KAFKA_BROKERS, client_id="sensor-admin")
         topics = admin.describe_topics([topico])

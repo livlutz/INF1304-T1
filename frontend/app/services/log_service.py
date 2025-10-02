@@ -6,19 +6,23 @@ class LogService:
     """Classe para analisar logs de producer, consumer e status dos brokers Kafka."""
 
     def __init__(self, logs_dir: str = None):
-        """Função para inicializar o serviço de logs com o diretório dos logs."""
+        """Função para inicializar o serviço de logs com o diretório dos logs.
+        Returns:
+            type: None
+        """
         if logs_dir is None:
-            # Auto-detect the correct logs directory based on environment
+            # Pega o diretorio dos logs
             if os.path.exists('/app/logs'):
-                # Running inside Docker container
                 logs_dir = '/app/logs'
             else:
-                # Running in development environment
                 logs_dir = '/workspaces/INF1304-T1/logs'
         self.logs_dir = logs_dir
 
     def _read_log_file(self, filename: str) -> Optional[str]:
-        """Lê o conteúdo do arquivo de log"""
+        """Lê o conteúdo do arquivo de log
+        Returns:
+            type: file content or None
+        """
         log_path = os.path.join(self.logs_dir, filename)
 
         if not os.path.exists(log_path):
@@ -33,7 +37,10 @@ class LogService:
             return None
 
     def get_sensors_messages(self) -> List[Dict]:
-        """Obtém mensagens de sensores analisadas a partir dos logs"""
+        """Obtém mensagens de sensores analisadas a partir dos logs
+        Returns:
+            type: list
+        """
         messages = []
         for i in range(1, 4):
             content = self._read_log_file(f"sensor{i}.log")
@@ -60,14 +67,16 @@ class LogService:
         return messages
 
     def get_consumers_messages(self) -> List[Dict]:
-        """Obtém mensagens de consumers analisadas a partir dos logs"""
+        """Obtém mensagens de consumers analisadas a partir dos logs
+        Returns:
+            type: list
+        """
         messages = []
         for i in range(1, 4):
             content = self._read_log_file(f"consumer{i}.log")
             if not content:
                 continue
 
-            # Debug: Print how many lines we're processing for each consumer
             lines = content.split('\n')
             received_count = sum(1 for line in lines if "Received sensor data: SensorData" in line)
             print(f"DEBUG: Consumer{i} has {len(lines)} total lines and {received_count} received messages", flush=True)
@@ -98,7 +107,10 @@ class LogService:
         return messages
 
     def get_kafka_broker_status(self) -> Dict[str, str]:
-        """Obtém o status de cada broker Kafka a partir da última mensagem de log relevante."""
+        """Obtém o status de cada broker Kafka a partir da última mensagem de log relevante.
+        Returns:
+            type: dict
+        """
         brokers = ['kafka1', 'kafka2', 'kafka3']
         status = {}
 
@@ -146,7 +158,10 @@ class LogService:
         return status
 
     def get_services_status(self) -> Dict[str, str]:
-        """Obtém o status de cada sensor e consumer a partir da última mensagem de log relevante."""
+        """Obtém o status de cada sensor e consumer a partir da última mensagem de log relevante.
+        Returns:
+            type: dict
+        """
         services = ['sensor1', 'sensor2', 'sensor3', 'consumer1', 'consumer2', 'consumer3']
         status = {}
 
@@ -192,7 +207,10 @@ class LogService:
         return status
 
     def get_system_stats(self) -> Dict:
-        """Obtém estatísticas gerais do sistema a partir dos logs"""
+        """Obtém estatísticas gerais do sistema a partir dos logs
+        Returns:
+            type: dict
+        """
         sensors_msgs = self.get_sensors_messages()
         consumers_msgs = self.get_consumers_messages()
         received_msgs = [m for m in consumers_msgs if m['type'] == 'received']
@@ -209,7 +227,10 @@ class LogService:
         return stats
 
     def get_recent_activity(self, limit: int = 10) -> List[Dict]:
-        """Obtém a atividade recente a partir de todos os logs"""
+        """Obtém a atividade recente a partir de todos os logs
+        Returns:
+            type: list
+        """
         sensors_msgs = self.get_sensors_messages()
         consumers_msgs = self.get_consumers_messages()
 
@@ -219,7 +240,10 @@ class LogService:
         return all_msgs[:limit]
 
     def get_anomaly_messages(self) -> List[Dict]:
-        """Detecta anomalias nos logs do consumer e outros componentes"""
+        """Detecta anomalias nos logs do consumer e outros componentes
+        Returns:
+            type: list
+        """
         anomalies = []
 
         for i in range(1, 4):
