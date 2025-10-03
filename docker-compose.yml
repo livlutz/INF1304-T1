@@ -113,6 +113,7 @@ services:
     build: ./sensor
     ports:
       - "8080:8080"
+    restart: unless-stopped
     depends_on:
       kafka1:
         condition: service_healthy
@@ -137,6 +138,7 @@ services:
     build: ./sensor
     ports:
       - "8081:8081"
+    restart: unless-stopped
     depends_on:
       kafka1:
         condition: service_healthy
@@ -161,6 +163,7 @@ services:
     build: ./sensor
     ports:
       - "8082:8082"
+    restart: unless-stopped
     depends_on:
       kafka1:
         condition: service_healthy

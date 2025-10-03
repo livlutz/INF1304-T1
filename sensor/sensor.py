@@ -57,9 +57,17 @@ def criar_producer():
     """
     try:
         producer = KafkaProducer(
-            bootstrap_servers=KAFKA_BROKERS
+            bootstrap_servers=KAFKA_BROKERS,
+            acks="all",  # confirmação do líder + réplicas
+            enable_idempotence=True,  # evita duplicação
+            max_in_flight_requests_per_connection=1,  # garante ordem
+            retries=10,  # tenta reenviar até 10 vezes
+            retry_backoff_ms=1000,  # espera entre tentativas
+            linger_ms=5,  # pequeno atraso para agrupar mensagens
+            batch_size=32 * 1024,  # até 32KB por batch
+            request_timeout_ms=20000,  # timeout para resposta
         )
-        print(f"Conectado ao Kafka! Brokers tentados: {KAFKA_BROKERS}", flush=True)
+        print(f"Conectado ao Kafka", flush=True)
         return producer
     except Exception as e:
         print(f"Falha ao conectar ao Kafka: {e}", flush=True)
@@ -84,15 +92,16 @@ def obter_lider(topico, particao):
         return f"desconhecido ({e})"
 
 if __name__ == "__main__":
+    
     # Para simular a geração contínua
     while True:
 
+        #manda mensagem ao kafka
+        producer = criar_producer()
         # Gera um número aleatório de registros para o arquivo
         num_registros = random.randint(10, 20)
         dados_coletados = [gerar_dados_maquina() for _ in range(num_registros)]
 
-        #manda mensagem ao kafka
-        producer = criar_producer()
 
         for dados in dados_coletados:
             future = producer.send(KAFKA_TOPIC, json.dumps(dados).encode('utf-8'))
