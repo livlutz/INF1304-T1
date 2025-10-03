@@ -180,6 +180,13 @@ recover-consumer:
 
 # Limpa build dos containers
 clean:
+	@echo "Limpando partições antigas..."
+	if docker inspect -f '{{.State.Running}}' kafka1 2>/dev/null | grep -q true; then \
+		docker exec -it kafka1 /opt/kafka/bin/kafka-topics.sh \
+		--delete --topic dados-sensores \
+		--bootstrap-server kafka1:9092; \
+	fi
+
 	@echo "Parando e removendo containers..."
 	make stop
 	@echo "Removendo imagens Docker..."
