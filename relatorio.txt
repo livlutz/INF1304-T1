@@ -9,8 +9,6 @@ O que foi implementado:
 - Desenvolvimento de sensores e consumidores (ambos três) em containers separados, todos integrados ao Kafka.
 - Implementação de scripts para simular falhas e recuperação automática de brokers e consumidores.
 - Dashboard interativo em Streamlit para monitoramento em tempo real dos sensores, consumidores, brokers e anomalias detectadas.
-- Lógica para contagem cumulativa de anomalias, com opção de reset manual.
-- Documentação do código principal com docstrings para todas as classes e funções.
 
 O que funcionou:
 - Distribuição correta das mensagens entre os consumidores após ajuste das partições do tópico Kafka.
@@ -19,9 +17,6 @@ O que funcionou:
 - Persistência da contagem de anomalias entre atualizações do dashboard.
 
 O que não funcionou ou apresentou dificuldades:
-- Inicialmente, as mensagens eram entregues apenas para um consumidor devido à configuração incorreta das partições do tópico.
-- Pequenos problemas de sintaxe e lint no código Python, corrigidos posteriormente.
-- Algumas limitações na visualização dos logs e na detecção de anomalias em tempo real devido ao formato dos arquivos de log.
-- Nao observamos nada que nao tenha funcionado do enunciado do trabalho, apenas as dificuldades detalhadas acima.
+- A atualização das informações no frontend não é imediata e às vezes é preciso recarrefar a janela para obter as informações corretas
 
 ---
