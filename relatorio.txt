@@ -2,11 +2,16 @@
 
 Relatório de Implementação
 
+Nome e matrícula dos alunos: 
+  Lívia Lutz dos Santos - 2211055
+  Thiago Pereira Camerato - 2212580
+
 O projeto foi desenvolvido para simular um ambiente distribuído com tolerância a falhas utilizando Kafka, sensores, consumidores e um dashboard de monitoramento.
 
 O que foi implementado:
 - Criação de um cluster Kafka com três brokers e configuração manual de tópicos com múltiplas partições.
 - Desenvolvimento de sensores e consumidores (ambos três) em containers separados, todos integrados ao Kafka.
+- Envio de mensagens pelos sensores (produtores) e recebimento delas pelos consumidores.
 - Implementação de scripts para simular falhas e recuperação automática de brokers e consumidores.
 - Dashboard interativo em Streamlit para monitoramento em tempo real dos sensores, consumidores, brokers e anomalias detectadas.
 
@@ -18,5 +23,7 @@ O que funcionou:
 
 O que não funcionou ou apresentou dificuldades:
 - A atualização das informações no frontend não é imediata e às vezes é preciso recarrefar a janela para obter as informações corretas
+
+A documentação de instalação e funcionamento do projeto se encontra no README do projeto no github no seguinte link: https://github.com/livlutz/INF1304-T1
 
 ---
