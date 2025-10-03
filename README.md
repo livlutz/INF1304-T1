@@ -124,10 +124,36 @@ make logs-consumers         # Logs dos consumidores
 make logs-kafka             # Logs dos brokers Kafka
 ```
 
-#### Simulação de Falhas
+#### Simulação de Falhas e recuperacao
+
 ```bash
-make failure                # Simula falha aleatória (broker ou consumidor)
-make recovery               # Recupera serviços com falha
+# Derrubar um broker específico
+make kill-broker BROKER=nome_do_broker
+
+# Recuperar um broker específico
+make recover-broker BROKER=nome_do_broker
+
+# Derrubar um consumer específico
+make kill-consumer CONSUMER=nome_do_consumer
+
+# Recuperar um consumer específico
+make recover-consumer CONSUMER=nome_do_consumer
+```
+
+- ou da seguinte forma:
+
+```bash
+# Equivalente a `make kill-broker BROKER=nome_do_broker`
+make kill-broker-nome_do_broker
+
+# Equivalente a `make recover-broker BROKER=nome_do_broker`
+make recover-broker-nome_do_broker
+
+# Equivalente a `make kill-consumer CONSUMER=nome_do_consumer`
+make kill-consumer-nome_do_consumer
+
+# Equivalente a `make recover-consumer CONSUMER=nome_do_consumer`
+make recover-consumer-nome_do_consumer
 ```
 
 ### Verificação do Sistema

@@ -7,6 +7,8 @@ o sistema de sensores, consumidores Kafka, brokers e detectar anomalias em tempo
 
 import os
 import time
+import json
+import tempfile
 import streamlit as st
 from services.log_service import LogService
 
@@ -178,30 +180,71 @@ class LogAnalyzer:
         with col_anomalies:
             st.subheader("⚠️ Detected Anomalies")
 
-            # Initialize cumulative counters in session state
-            if 'cumulative_anomaly_counts' not in st.session_state:
-                st.session_state.cumulative_anomaly_counts = {
-                    'critical': 0,
-                    'high': 0,
-                    'medium': 0,
-                    'low': 0
-                }
+            # Path to persistent state file for anomalies
+            state_file = os.path.join(self.log_service.logs_dir, 'anomalies_state.json')
 
-            # Initialize processed anomalies set to avoid double counting
-            if 'processed_anomalies' not in st.session_state:
-                st.session_state.processed_anomalies = set()
+            def load_anomaly_state(path):
+                default = ({'critical': 0, 'high': 0, 'medium': 0, 'low': 0}, set())
+                try:
+                    if os.path.exists(path):
+                        with open(path, 'r') as fh:
+                            data = json.load(fh)
+                        counts = data.get('counts', default[0])
+                        processed = set(data.get('processed', []))
+                        # ensure keys exist
+                        for k in ['critical', 'high', 'medium', 'low']:
+                            counts.setdefault(k, 0)
+                        return counts, processed
+                except Exception:
+                    # if any problem reading state, return defaults
+                    return default
+                return default
+
+            def save_anomaly_state(path, counts, processed_set):
+                # write atomically
+                tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path))
+                try:
+                    with os.fdopen(tmp_fd, 'w') as fh:
+                        json.dump({'counts': counts, 'processed': list(processed_set)}, fh)
+                    os.replace(tmp_path, path)
+                except Exception:
+                    # best-effort: cleanup if write failed
+                    try:
+                        if os.path.exists(tmp_path):
+                            os.remove(tmp_path)
+                    except Exception:
+                        pass
+
+            # Load persisted state once into session_state (if not present)
+            if 'cumulative_anomaly_counts' not in st.session_state or 'processed_anomalies' not in st.session_state:
+                counts, processed = load_anomaly_state(state_file)
+                st.session_state.cumulative_anomaly_counts = counts
+                st.session_state.processed_anomalies = processed
 
             if anomalies:
                 # Add new anomalies to cumulative count
+                new_event = False
                 for anomaly in anomalies:
                     # Create unique identifier for anomaly (timestamp + message)
                     anomaly_id = f"{anomaly['timestamp']}_{anomaly['message'][:50]}"
 
                     # Only count if not already processed
                     if anomaly_id not in st.session_state.processed_anomalies:
-                        severity = anomaly['severity']
+                        severity = anomaly.get('severity', 'low')
+                        # guard against unexpected severities
+                        if severity not in st.session_state.cumulative_anomaly_counts:
+                            severity = 'low'
                         st.session_state.cumulative_anomaly_counts[severity] += 1
                         st.session_state.processed_anomalies.add(anomaly_id)
+                        new_event = True
+
+                # persist if there were changes
+                if new_event:
+                    try:
+                        save_anomaly_state(state_file, st.session_state.cumulative_anomaly_counts, st.session_state.processed_anomalies)
+                    except Exception:
+                        # don't block UI on persistence failures
+                        pass
 
                 # Display cumulative severity metrics
                 metric_cols = st.columns(4)
@@ -225,7 +268,7 @@ class LogAnalyzer:
                         'low': '🔵'
                     }
 
-                    emoji = severity_emoji.get(anomaly['severity'], '⚪')
+                    emoji = severity_emoji.get(anomaly.get('severity', 'low'), '⚪')
 
                     with st.expander(f"{emoji} {anomaly['type'].replace('_', ' ').title()} - {anomaly['timestamp']}"):
                         if anomaly.get('machine_id') and anomaly['machine_id'] != 'Unknown':
@@ -234,7 +277,7 @@ class LogAnalyzer:
                             st.text(f"📍 Sector: {anomaly['sector']}")
                         if anomaly.get('sensor_value'):
                             st.text(f"📊 Value: {anomaly['sensor_value']}")
-                        st.text(f"⚠️ Severity: {anomaly['severity'].upper()}")
+                        st.text(f"⚠️ Severity: {anomaly.get('severity', 'low').upper()}")
                         st.code(anomaly['message'], language='text')
             else:
                 st.success("✅ No anomalies detected")

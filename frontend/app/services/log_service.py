@@ -129,9 +129,9 @@ class LogService:
                 "started (kafka.server.KafkaServer)", "Kafka Server started",
                 "KafkaServer started", "[KafkaServer id=", "[KafkaRaftServer nodeId=",
                 "Transition from STARTING to STARTED", "BrokerServer id=", "Endpoint is now READY",
-                "Scheduling unloading","Ignored unloading metadata for"
+                "Scheduling unloading","Ignored unloading metadata for", "recuperado"
             ]
-            shutdown_indicators = ["shutting down", "Shutdown completed"]
+            shutdown_indicators = ["shutting down", "Shutdown completed","derrubado"]
             error_indicators = ["FATAL", "CONTAINER_REMOVED"]
 
             for line in reversed(lines):
@@ -178,10 +178,10 @@ class LogService:
 
             startup_indicators = [
                 "Conectado ao Kafka", "Sensor configurado para a partição",
-                "Consumidor iniciado", "atribuído à partição"
+                "Consumidor iniciado", "atribuído à partição", "recuperado"
             ]
-            shutdown_indicators = ["shutting down", "Shutdown completed"]
-            error_indicators = ["FATAL", "EXCEPTION", "Error", "Falha"]
+            shutdown_indicators = ["shutting down", "Shutdown completed", "derrubado"]
+            error_indicators = ["FATAL", "EXCEPTION", "Error", "Falha","CONTAINER_REMOVED"]
 
             for line in reversed(lines):
                 if not line.strip():

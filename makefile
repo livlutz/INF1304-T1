@@ -7,30 +7,38 @@ FRONTEND_DIR = frontend
 # Simulação completa com falhas aleatórias
 all:
 	make up
-	@sleep 30
-	make failure
-	@sleep 20
-	make recovery
-	@sleep 30
-	make failure
-	@sleep 20
-	make recovery
-	@sleep 30
-	make failure
-	@sleep 20
-	make recovery
-	@sleep 30
-	make failure
-	@sleep 20
-	make recovery
-	@sleep 30
-	make failure
-	@sleep 20
-	make recovery
-	@sleep 30
-	make failure
-	@sleep 20
-	make recovery
+	@sleep 10
+	@echo "Derrubando broker: kafka1"
+	$(MAKE) kill-broker-kafka1
+	@sleep 10
+	$(MAKE) recover-broker-kafka1
+	@sleep 10
+	@echo "Derrubando broker: kafka2"
+	$(MAKE) kill-broker-kafka2
+	@sleep 10
+	$(MAKE) recover-broker-kafka2
+	@sleep 10
+	@echo "Derrubando broker: kafka3"
+	$(MAKE) kill-broker-kafka3
+	@sleep 10
+	$(MAKE) recover-broker-kafka3
+	@sleep 10
+	@echo "Derrubando consumer: consumer1"
+	$(MAKE) kill-consumer-consumer1
+	@sleep 10
+	$(MAKE) recover-consumer-consumer1
+	@sleep 10
+	@echo "Derrubando consumer: consumer2"
+	$(MAKE) kill-consumer-consumer2
+	@sleep 10
+	$(MAKE) recover-consumer-consumer2
+	@sleep 10
+	@echo "Derrubando consumer: consumer3"
+	$(MAKE) kill-consumer-consumer3
+	@sleep 10
+	$(MAKE) recover-consumer-consumer3
+	@sleep 10
+	@echo "Simulação completa!"
 	make stop
 
 #Para e remove os containers
@@ -117,66 +125,55 @@ logs-frontend:
 	@sleep 5
 	@docker logs frontend 2>/dev/null | head -10 || echo "Frontend ainda não iniciou completamente"
 
-# Simula a queda aleatória de um broker ou consumer usando os scripts existentes
-failure:
-	@mkdir -p logs
-	@RANDOM_SEED=$$(date +%s%N); \
-	COMPONENT_TYPE=$$(($$RANDOM_SEED % 2)); \
-	echo "Tipo de componente selecionado: $$COMPONENT_TYPE (0=broker, 1=consumer)"; \
-	if [ $$COMPONENT_TYPE -eq 0 ]; then \
-		BROKER_NUM=$$(($$RANDOM_SEED % 3 + 1)); \
-		BROKER_NAME="kafka$$BROKER_NUM"; \
-		echo "Derrubando broker: $$BROKER_NAME"; \
-		echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Falha no broker $$BROKER_NAME usando kill_broker.sh" >> logs/simulation.log; \
-		cd scripts && chmod +x kill_broker.sh && ./kill_broker.sh $$BROKER_NAME && cd ..; \
-		echo "FAILED_COMPONENT=$$BROKER_NAME" > .simulation_state; \
-		echo "COMPONENT_TYPE=BROKER" >> .simulation_state; \
-	else \
-		CONSUMER_NUM=$$(($$RANDOM_SEED % 3 + 1)); \
-		CONSUMER_NAME="consumer$$CONSUMER_NUM"; \
-		echo "Derrubando consumer: $$CONSUMER_NAME"; \
-		echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Falha no consumer $$CONSUMER_NAME usando kill_consumer.sh" >> logs/simulation.log; \
-		cd scripts && chmod +x kill_consumer.sh && ./kill_consumer.sh $$CONSUMER_NAME && cd ..; \
-		echo "FAILED_COMPONENT=$$CONSUMER_NAME" > .simulation_state; \
-		echo "COMPONENT_TYPE=CONSUMER" >> .simulation_state; \
-	fi
-
-# Decide se vai recuperar o componente ou deixar em falha
-recovery:
-	@if [ ! -f .simulation_state ]; then \
-		echo "Erro: arquivo .simulation_state não encontrado. Execute 'make failure' primeiro."; \
-		exit 1; \
-	fi
-	@RANDOM_SEED=$$(date +%s%N); \
-	RECOVERY_DECISION=$$(($$RANDOM_SEED % 2)); \
-	FAILED_COMPONENT=$$(grep FAILED_COMPONENT .simulation_state | cut -d'=' -f2); \
-	COMPONENT_TYPE=$$(grep COMPONENT_TYPE .simulation_state | cut -d'=' -f2); \
-	echo "$$RECOVERY_DECISION (0=manter falha, 1=recuperar)"; \
-	if [ $$RECOVERY_DECISION -eq 0 ]; then \
-		echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Decisão: $$FAILED_COMPONENT em falha" >> logs/simulation.log; \
-	else \
-		echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Decisão: Recuperando $$FAILED_COMPONENT" >> logs/simulation.log; \
-		if [ "$$COMPONENT_TYPE" = "BROKER" ]; then \
-			make recover-broker BROKER=$$FAILED_COMPONENT; \
-		else \
-			make recover-consumer CONSUMER=$$FAILED_COMPONENT; \
-		fi; \
-		echo "=== COMPONENTE $$FAILED_COMPONENT RECUPERADO ==="; \
-	fi
-
 # Recupera um broker específico
 recover-broker:
 	@echo "Recuperando broker: $(BROKER)"
 	@docker start $(BROKER) || true
-	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Broker $(BROKER) recuperado" >> logs/simulation.log
+	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Broker $(BROKER) recuperado" >> logs/$(BROKER).log
 	@sleep 5
+
+recover-broker-%:
+	@$(MAKE) recover-broker BROKER=$*
 
 # Recupera um consumer específico
 recover-consumer:
 	@echo "Recuperando consumer: $(CONSUMER)"
 	@docker start $(CONSUMER) || true
-	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Consumer $(CONSUMER) recuperado com sucesso" >> logs/simulation.log
+	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Consumer $(CONSUMER) recuperado com sucesso" >> logs/$(CONSUMER).log
 	@sleep 5
+
+recover-consumer-%:
+	@$(MAKE) recover-consumer CONSUMER=$*
+
+kill-consumer:
+	@if [ -z "$(CONSUMER)" ]; then \
+		echo "Usage: make kill-consumer CONSUMER=<name>  or make kill-consumer-<name>"; \
+		exit 1; \
+	fi
+	@echo "Derrubando consumer: $(CONSUMER)"
+	cd scripts && chmod +x kill_consumer.sh && ./kill_consumer.sh $(CONSUMER) && cd ..
+	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Consumer $(CONSUMER) derrubado com sucesso" >> logs/$(CONSUMER).log
+	@sleep 5
+
+# Pattern wrappers so user can call e.g. `make kill-consumer-consumer1` or `make kill-consumer CONSUMER=consumer1`
+kill-consumer-%:
+	@$(MAKE) kill-consumer CONSUMER=$*
+
+
+kill-broker:
+	@if [ -z "$(BROKER)" ]; then \
+		echo "Usage: make kill-broker BROKER=<name>  or make kill-broker-<name>"; \
+		exit 1; \
+	fi
+	@echo "Derrubando broker: $(BROKER)"
+	cd scripts && chmod +x kill_broker.sh && ./kill_broker.sh $(BROKER) && cd ..
+	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Broker $(BROKER) derrubado com sucesso" >> logs/$(BROKER).log
+	@sleep 5
+
+# Pattern wrappers so user can call e.g. `make kill-broker-kafka1` or `make kill-broker BROKER=kafka1`
+kill-broker-%:
+	@$(MAKE) kill-broker BROKER=$*
+
 
 # Limpa build dos containers
 clean:
