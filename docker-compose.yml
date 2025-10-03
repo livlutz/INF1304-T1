@@ -21,7 +21,7 @@ services:
       KAFKA_DEFAULT_REPLICATION_FACTOR: 2
       KAFKA_MIN_INSYNC_REPLICAS: 1
       # Disable auto topic creation to enforce explicit partition configuration
-      #KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_NUM_PARTITIONS: 3
     volumes:
       - kafka1_logs:/var/lib/kafka/data/
@@ -54,7 +54,7 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19092,2@kafka2:19093,3@kafka3:19094
       KAFKA_LOG_DIRS: /var/lib/kafka/data/
       # Disable auto topic creation to enforce explicit partition configuration
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
       KAFKA_DEFAULT_REPLICATION_FACTOR: 2
@@ -87,7 +87,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       # Disable auto topic creation to enforce explicit partition configuration
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_NUM_PARTITIONS: 3
       # KAFKA_CONTROLLER_QUORUM_VOTERS: <node_id>@<hostname>:<port> -> quem pode votar
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19092,2@kafka2:19093,3@kafka3:19094
