@@ -181,7 +181,7 @@ class LogService:
                 "Consumidor iniciado", "atribuído à partição", "recuperado"
             ]
             shutdown_indicators = ["shutting down", "Shutdown completed", "derrubado"]
-            error_indicators = ["FATAL", "EXCEPTION", "Error", "Falha"]
+            error_indicators = ["FATAL", "EXCEPTION", "Error", "Falha","CONTAINER_REMOVED"]
 
             for line in reversed(lines):
                 if not line.strip():
