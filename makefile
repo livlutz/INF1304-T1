@@ -131,6 +131,8 @@ recover-broker:
 	@docker start $(BROKER) || true
 	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Broker $(BROKER) recuperado" >> logs/$(BROKER).log
 	@sleep 5
+	@echo "Reiniciando captura de logs de $(BROKER)..."
+	@nohup docker logs -f $(BROKER) >> logs/$(BROKER).log 2>&1 &
 
 recover-broker-%:
 	@$(MAKE) recover-broker BROKER=$*
@@ -141,6 +143,8 @@ recover-consumer:
 	@docker start $(CONSUMER) || true
 	@echo "$$(date '+%Y-%m-%d %H:%M:%S') [SIMULAÇÃO] Consumer $(CONSUMER) recuperado com sucesso" >> logs/$(CONSUMER).log
 	@sleep 5
+	@echo "Reiniciando captura de logs de $(CONSUMER)..."
+	@nohup docker logs -f $(CONSUMER) >> logs/$(CONSUMER).log 2>&1 &
 
 recover-consumer-%:
 	@$(MAKE) recover-consumer CONSUMER=$*
