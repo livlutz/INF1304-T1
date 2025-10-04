@@ -106,7 +106,7 @@ docker-compose logs -f
 
 #### Inicialização Completa
 ```bash
-make all          # Constrói, inicia e exibe logs
+make all          # Constrói, inicia e simula falhas nos containers 
 ```
 
 #### Gerenciamento de Serviços
@@ -224,18 +224,13 @@ projeto-kafka-fabrica/
 ├── frontend-python/               # Dashboard / visualização
 │   ├── app/
 │   │   ├── main.py
-│   │   ├── services/               # Conexão ao banco de dados
-│   │   ├── views/                  # Páginas/telas
-│   │   └── static/                 # HTML/CSS/JS
+│   │   ├── services/               # Lógica da leitura dos estatus dos containers 
 │   ├── requirements.txt
 │   └── Dockerfile
 │
 ├── sensor/                       # Produtores (simulação)
 │   ├── sensor.py
 │   ├── requirements.txt
-│   └── Dockerfile
-│
-├── db/                            # Banco de dados (Postgres ou outro)
 │   └── Dockerfile
 │
 ├── docker-compose.yml             # Orquestra todos os serviços
