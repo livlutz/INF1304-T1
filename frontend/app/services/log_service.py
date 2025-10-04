@@ -178,7 +178,8 @@ class LogService:
 
             startup_indicators = [
                 "Conectado ao Kafka", "Sensor configurado para a partição",
-                "Consumidor iniciado", "atribuído à partição", "recuperado"
+                "Consumidor iniciado", "atribuído à partição", "recuperado",
+                "Mensagem enviada para dados-sensores"
             ]
             shutdown_indicators = ["shutting down", "Shutdown completed", "derrubado"]
             error_indicators = ["FATAL", "EXCEPTION", "Error", "Falha","CONTAINER_REMOVED"]

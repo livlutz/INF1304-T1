@@ -96,10 +96,11 @@ docker-compose logs -f
 
 1. **Acesse o Dashboard**: Abra `http://localhost:8501` no navegador
 2. **Recursos disponíveis**:
-   - Status dos brokers Kafka (kafka1, kafka2, kafka3)
-   - Métricas dos sensores e consumidores
-   - Anomalias detectadas
+   - Status dos brokers Kafka (kafka1, kafka2, kafka3) e dos sensores e consumidores
+   - Anomalias detectadas e seus detalhes
    - Atividade recente do sistema
+   - Quantidade de mensagens enviadas por cada sensor
+   - Quantidade de mensagens recebidas por cada consumidor
 
 ### Comandos Principais
 
