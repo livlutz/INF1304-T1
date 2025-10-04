@@ -1,6 +1,5 @@
 import os
 import re
-import time
 from typing import List, Dict, Optional
 
 class LogService:
@@ -36,28 +35,6 @@ class LogService:
         except Exception as e:
             print(f"Error reading {filename}: {e}")
             return None
-
-    def _is_log_file_stale(self, filename: str, max_age_seconds: int = 60) -> bool:
-        """Verifica se o arquivo de log não foi modificado há muito tempo
-        Returns:
-            type: bool - True se o arquivo estiver 'stale' (não atualizado)
-        """
-        log_path = os.path.join(self.logs_dir, filename)
-
-        if not os.path.exists(log_path):
-            return True
-
-        try:
-            # Pega o timestamp da última modificação do arquivo
-            last_modified = os.path.getmtime(log_path)
-            current_time = time.time()
-
-            # Se o arquivo não foi modificado nos últimos max_age_seconds, considera stale
-            return (current_time - last_modified) > max_age_seconds
-
-        except Exception as e:
-            print(f"Error checking modification time for {filename}: {e}")
-            return True
 
     def get_sensors_messages(self) -> List[Dict]:
         """Obtém mensagens de sensores analisadas a partir dos logs
@@ -196,9 +173,6 @@ class LogService:
                 status[service] = "LOG_CLEARED"
                 continue
 
-            # Verifica se o log está sendo atualizado recentemente
-            is_stale = self._is_log_file_stale(log_file, max_age_seconds=60)
-
             lines = content.strip().split('\n')
             service_status = "UNKNOWN"
 
@@ -228,13 +202,6 @@ class LogService:
 
             if service_status == "UNKNOWN" and lines and any(line.strip() for line in lines):
                 service_status = "STARTING"
-
-            # Se o log está stale (não atualizado) e o último status era RUNNING,
-            # provavelmente o serviço parou de funcionar
-            if is_stale and service_status == "RUNNING":
-                service_status = "STALE"
-            elif is_stale and service_status in ["STARTING", "UNKNOWN"]:
-                service_status = "ERROR"
 
             status[service] = service_status
 
